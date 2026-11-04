@@ -427,11 +427,13 @@ class VaultSessionManager private constructor(private val context: Context) {
     private fun recordFailedAttempt() {
         val attempts = prefs.getInt(KEY_FAILED_ATTEMPTS, 0) + 1
         val editor = prefs.edit().putInt(KEY_FAILED_ATTEMPTS, attempts)
-        if (attempts >= 5) {
+        if (attempts >= 3) {
             val delaySeconds = when {
-                attempts >= 10 -> 300 // 5 min
-                attempts >= 7 -> 60   // 1 min
-                else -> 15            // 15 sec
+                attempts >= 10 -> 900 // 15 min
+                attempts >= 8 -> 300  // 5 min
+                attempts >= 6 -> 120  // 2 min
+                attempts >= 5 -> 30   // 30 sec
+                else -> 15            // 15 sec (for attempts 3 and 4)
             }
             editor.putLong(KEY_LOCKOUT_UNTIL, System.currentTimeMillis() + (delaySeconds * 1000L))
         }
@@ -442,12 +444,23 @@ class VaultSessionManager private constructor(private val context: Context) {
         prefs.edit().putInt(KEY_FAILED_ATTEMPTS, 0).putLong(KEY_LOCKOUT_UNTIL, 0L).apply()
     }
 
+    fun getLockoutStatus(): Triple<Boolean, Int, Int> {
+        val lockoutUntil = prefs.getLong(KEY_LOCKOUT_UNTIL, 0L)
+        val attempts = prefs.getInt(KEY_FAILED_ATTEMPTS, 0)
+        val now = System.currentTimeMillis()
+        if (now < lockoutUntil) {
+            val remainingSec = ((lockoutUntil - now + 999) / 1000).toInt()
+            return Triple(true, remainingSec, attempts)
+        }
+        return Triple(false, 0, attempts)
+    }
+
     private fun checkLockout() {
         val lockoutUntil = prefs.getLong(KEY_LOCKOUT_UNTIL, 0L)
         val now = System.currentTimeMillis()
         if (now < lockoutUntil) {
-            val remainingSec = (lockoutUntil - now) / 1000
-            throw IllegalStateException("Too many failed attempts. Try again in $remainingSec seconds.")
+            val remainingSec = ((lockoutUntil - now + 999) / 1000).toInt()
+            throw IllegalStateException("Too many failed attempts. Vault locked for $remainingSec seconds.")
         }
     }
 }

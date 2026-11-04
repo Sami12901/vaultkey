@@ -16,10 +16,10 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { StrengthMeter } from '../../components/vault/StrengthMeter';
-import { ShieldIcon, KeyIcon, FingerprintIcon, ShieldCheckIcon } from '../../components/icons';
+import { ShieldIcon, KeyIcon, FingerprintIcon, ShieldCheckIcon, CheckIcon, CloseIcon } from '../../components/icons';
 import { useVaultStore } from '../../stores/vaultStore';
-import { vaultNative } from '../../services/nativeBridge';
 import { useTranslation } from '../../i18n';
+import { calculatePasswordEntropy, EntropyResult } from '../../utils/entropyUtils';
 
 export const MasterPasswordSetupScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -29,38 +29,24 @@ export const MasterPasswordSetupScreen: React.FC = () => {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [strength, setStrength] = useState({ score: 0, entropy: 0, feedback: [] as string[] });
+  const [entropyRes, setEntropyRes] = useState<EntropyResult>(() => calculatePasswordEntropy(''));
   const [error, setError] = useState<string | null>(null);
   const [enableBio, setEnableBio] = useState(true);
 
-  const handlePasswordChange = async (text: string) => {
+  const handlePasswordChange = (text: string) => {
     setPassword(text);
     setError(null);
-    if (text.length > 0) {
-      try {
-        await vaultNative.generatePassword({ length: text.length });
-        let score = 0;
-        if (text.length >= 12) score += 1;
-        if (/[A-Z]/.test(text) && /[a-z]/.test(text)) score += 1;
-        if (/[0-9]/.test(text)) score += 1;
-        if (/[^A-Za-z0-9]/.test(text)) score += 1;
-        const entropy = Math.round(text.length * 4.5);
-        setStrength({
-          score,
-          entropy,
-          feedback: text.length < 12 ? [t('passwordTooShort')] : [],
-        });
-      } catch {
-        // Local calculation fallback
-      }
-    } else {
-      setStrength({ score: 0, entropy: 0, feedback: [] });
-    }
+    const res = calculatePasswordEntropy(text);
+    setEntropyRes(res);
   };
 
   const handleCreateVault = async () => {
-    if (password.length < 12) {
+    if (!entropyRes.isLengthValid) {
       setError(t('passwordTooShort'));
+      return;
+    }
+    if (!entropyRes.isEntropySafe || !entropyRes.isValidMasterPassword) {
+      setError('Password too weak. Minimum 60 bits entropy and 3 character classes required.');
       return;
     }
     if (password !== confirmPassword) {
@@ -110,11 +96,60 @@ export const MasterPasswordSetupScreen: React.FC = () => {
         />
 
         {password.length > 0 ? (
-          <StrengthMeter
-            score={strength.score}
-            entropy={strength.entropy}
-            feedback={strength.feedback}
-          />
+          <View style={styles.entropyContainer}>
+            <StrengthMeter
+              score={entropyRes.score}
+              entropy={entropyRes.entropy}
+              feedback={entropyRes.feedback}
+            />
+
+            {/* Mandatory Entropy Criteria Checklist */}
+            <View style={styles.checklist}>
+              <View style={styles.checkItem}>
+                {entropyRes.isLengthValid ? (
+                  <CheckIcon size={14} color="#10B981" />
+                ) : (
+                  <CloseIcon size={14} color="#64748B" />
+                )}
+                <Text style={[styles.checkText, { color: entropyRes.isLengthValid ? '#10B981' : colors.textSecondary }]}>
+                  At least 12 characters ({password.length}/12)
+                </Text>
+              </View>
+
+              <View style={styles.checkItem}>
+                {entropyRes.hasUppercase && entropyRes.hasLowercase ? (
+                  <CheckIcon size={14} color="#10B981" />
+                ) : (
+                  <CloseIcon size={14} color="#64748B" />
+                )}
+                <Text style={[styles.checkText, { color: entropyRes.hasUppercase && entropyRes.hasLowercase ? '#10B981' : colors.textSecondary }]}>
+                  Uppercase and lowercase letters
+                </Text>
+              </View>
+
+              <View style={styles.checkItem}>
+                {entropyRes.hasNumber || entropyRes.hasSymbol ? (
+                  <CheckIcon size={14} color="#10B981" />
+                ) : (
+                  <CloseIcon size={14} color="#64748B" />
+                )}
+                <Text style={[styles.checkText, { color: entropyRes.hasNumber || entropyRes.hasSymbol ? '#10B981' : colors.textSecondary }]}>
+                  Numbers and/or symbols
+                </Text>
+              </View>
+
+              <View style={styles.checkItem}>
+                {entropyRes.isEntropySafe ? (
+                  <CheckIcon size={14} color="#10B981" />
+                ) : (
+                  <CloseIcon size={14} color="#64748B" />
+                )}
+                <Text style={[styles.checkText, { color: entropyRes.isEntropySafe ? '#10B981' : colors.textSecondary }]}>
+                  Safe cryptographic entropy ({entropyRes.entropy} / 60 bits minimum)
+                </Text>
+              </View>
+            </View>
+          </View>
         ) : null}
 
         <Input
@@ -165,7 +200,7 @@ export const MasterPasswordSetupScreen: React.FC = () => {
           title={t('createVaultBtn')}
           onPress={handleCreateVault}
           loading={isLoading}
-          disabled={password.length < 12 || password !== confirmPassword}
+          disabled={!entropyRes.isValidMasterPassword || password !== confirmPassword}
           style={styles.submitBtn}
           icon={<KeyIcon size={20} color={colors.white} />}
         />
@@ -278,6 +313,25 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xs,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  entropyContainer: {
+    marginBottom: spacing.sm,
+  },
+  checklist: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
+    gap: 4,
+  },
+  checkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  checkText: {
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 16,
   },
   warningBox: {
     flexDirection: 'row',

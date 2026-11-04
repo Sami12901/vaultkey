@@ -32,6 +32,9 @@ import {
   SettingsIcon,
   FolderIcon,
 } from './src/components/icons';
+import { SecurityWarningModal } from './src/components/common/SecurityWarningModal';
+import { UpdateModal } from './src/components/common/UpdateModal';
+import { securityNative, updateNative, UpdateInfo } from './src/services/nativeBridge';
 
 type ActiveScreen =
   | 'HOME'
@@ -49,9 +52,29 @@ function AppContent(): React.JSX.Element {
 
   const [currentScreen, setCurrentScreen] = useState<ActiveScreen>('HOME');
   const [selectedItem, setSelectedItem] = useState<VaultItemSummary | null>(null);
+  const [securityThreats, setSecurityThreats] = useState<string[]>([]);
+  const [showSecurityWarning, setShowSecurityWarning] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
     checkInitialStatus();
+
+    // Check device security (Root, Frida, Debugger)
+    securityNative.checkDeviceSecurity().then(status => {
+      if (status && status.isCompromised) {
+        setSecurityThreats(status.threats || []);
+        setShowSecurityWarning(true);
+      }
+    }).catch(() => {});
+
+    // Check for app updates from GitHub Releases
+    updateNative.checkForUpdate().then(info => {
+      if (info && info.hasUpdate) {
+        setUpdateInfo(info);
+        setShowUpdateModal(true);
+      }
+    }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -295,6 +318,20 @@ function AppContent(): React.JSX.Element {
           </TouchableOpacity>
         </View>
       ) : null}
+
+      {/* Security Warning Modal for Root / Frida / Debugger */}
+      <SecurityWarningModal
+        visible={showSecurityWarning}
+        threats={securityThreats}
+        onAcknowledge={() => setShowSecurityWarning(false)}
+      />
+
+      {/* In-App GitHub Releases Update Modal */}
+      <UpdateModal
+        visible={showUpdateModal}
+        updateInfo={updateInfo}
+        onClose={() => setShowUpdateModal(false)}
+      />
     </View>
   );
 }

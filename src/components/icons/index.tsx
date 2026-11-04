@@ -297,4 +297,20 @@ export const CameraIcon: React.FC<IconProps> = ({ size = 24, color = '#F8FAFC' }
   </Svg>
 );
 
+export const CloudDownloadIcon: React.FC<IconProps> = ({ size = 24, color = '#10B981' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+    <Path d="M12 12v9" />
+    <Path d="m8 17 4 4 4-4" />
+  </Svg>
+);
+
+export const ShieldAlertIcon: React.FC<IconProps> = ({ size = 24, color = '#EF4444' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <Line x1="12" y1="8" x2="12" y2="12" />
+    <Line x1="12" y1="16" x2="12.01" y2="16" />
+  </Svg>
+);
+
 export * from './BrandIcons';

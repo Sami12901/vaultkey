@@ -11,6 +11,7 @@ import {
   Image,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { colors, setTheme } from '../../theme/colors';
 import { radius, typography, spacing, useTheme } from '../../theme';
@@ -31,12 +32,17 @@ import {
   GlobeIcon,
   CloseIcon,
   SearchIcon,
+  CloudDownloadIcon,
 } from '../../components/icons';
 import {
   vaultNative,
   autofillNative,
   securityNative,
+  updateNative,
+  UpdateInfo,
 } from '../../services/nativeBridge';
+import { UpdateModal } from '../../components/common/UpdateModal';
+import { calculatePasswordEntropy } from '../../utils/entropyUtils';
 import { useVaultStore } from '../../stores/vaultStore';
 import { useTranslation, Language, SUPPORTED_LANGUAGES } from '../../i18n';
 import { AppTheme } from '../../types';
@@ -131,6 +137,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Global Language Modal State
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [languageSearch, setLanguageSearch] = useState('');
+
+  // GitHub In-App Auto-Update State
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [manualUpdateInfo, setManualUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [showManualUpdateModal, setShowManualUpdateModal] = useState(false);
+
+  const handleManualCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      const info = await updateNative.checkForUpdate();
+      if (info && info.hasUpdate) {
+        setManualUpdateInfo(info);
+        setShowManualUpdateModal(true);
+      } else {
+        ToastAndroid.show(`You are already on the latest version (${info?.currentVersion || 'v1.0.0'})`, ToastAndroid.LONG);
+      }
+    } catch (err: any) {
+      Alert.alert('Update Check Failed', err?.message || 'Unable to connect to GitHub. Please check your internet connection.');
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   const filteredLanguages = SUPPORTED_LANGUAGES.filter(
     l =>
@@ -231,8 +259,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleChangePassword = async () => {
-    if (newPass.length < 12) {
+    const entropyRes = calculatePasswordEntropy(newPass);
+    if (!entropyRes.isLengthValid) {
       Alert.alert(t('error'), t('passwordTooShort'));
+      return;
+    }
+    if (!entropyRes.isEntropySafe || !entropyRes.isValidMasterPassword) {
+      Alert.alert(
+        t('error'),
+        'New Master Password is too weak. Minimum 60 bits entropy and 3 character classes (uppercase, numbers, symbols) are required.'
+      );
       return;
     }
     if (newPass !== confirmNewPass) {
@@ -562,6 +598,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <Text style={styles.specLabel}>Biometric Binding</Text>
             <Text style={styles.specValue}>Android Keystore StrongBox</Text>
           </View>
+
+          {/* GitHub In-App Auto-Update Button */}
+          <TouchableOpacity
+            style={styles.updateCheckBtn}
+            onPress={handleManualCheckUpdate}
+            disabled={checkingUpdate}
+            activeOpacity={0.8}
+          >
+            {checkingUpdate ? (
+              <ActivityIndicator size="small" color="#10B981" />
+            ) : (
+              <CloudDownloadIcon size={18} color="#10B981" />
+            )}
+            <Text style={styles.updateCheckBtnText}>
+              {checkingUpdate ? 'Checking GitHub Releases...' : 'Check for GitHub Updates'}
+            </Text>
+          </TouchableOpacity>
         </Card>
       </ScrollView>
 
@@ -686,6 +739,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </Card>
         </View>
       </Modal>
+
+      {/* GitHub In-App Update Modal */}
+      <UpdateModal
+        visible={showManualUpdateModal}
+        updateInfo={manualUpdateInfo}
+        onClose={() => setShowManualUpdateModal(false)}
+      />
     </View>
   );
 };
@@ -858,6 +918,24 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xs,
     color: colors.textSecondary,
     fontFamily: 'monospace',
+  },
+  updateCheckBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  updateCheckBtnText: {
+    color: '#10B981',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
   },
   modalOverlay: {
     flex: 1,

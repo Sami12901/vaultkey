@@ -16,7 +16,8 @@ class VaultPackage : ReactPackage {
             ClipboardModule(reactContext),
             AutofillModule(reactContext),
             SecurityModule(reactContext),
-            BackupModule(reactContext)
+            BackupModule(reactContext),
+            UpdateModule(reactContext)
         )
     }
 

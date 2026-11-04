@@ -27,9 +27,44 @@ const {
   AutofillModule,
   SecurityModule,
   BackupModule,
+  UpdateModule,
 } = NativeModules;
 
+export interface UpdateInfo {
+  hasUpdate: boolean;
+  latestVersion: string;
+  currentVersion: string;
+  releaseName: string;
+  changelog: string;
+  publishedAt: string;
+  apkUrl: string;
+  apkName: string;
+  apkSize: number;
+}
+
+export interface DownloadProgress {
+  percent: number;
+  downloadedBytes: number;
+  totalBytes: number;
+}
+
+export interface DeviceSecurityStatus {
+  isCompromised: boolean;
+  isRootDetected: boolean;
+  isFridaDetected: boolean;
+  isDebuggerAttached: boolean;
+  isTestKeysBuild: boolean;
+  isStrongBoxSupported: boolean;
+  threats: string[];
+  securityLevel: 'COMPROMISED' | 'HIGH_STRONGBOX' | 'STANDARD_TEE';
+}
+
 export const vaultNative = {
+  // Lockout & Brute-force backoff
+  getLockoutStatus: async (): Promise<{ isLockedOut: boolean; remainingSeconds: number; failedAttempts: number }> => {
+    return VaultModule.getLockoutStatus();
+  },
+
   // Vault lifecycle & auth
   isInitialized: async (): Promise<boolean> => {
     return VaultModule.isInitialized();
@@ -262,13 +297,34 @@ export const securityNative = {
     return SecurityModule.setScreenSecurity(enabled);
   },
 
-  checkDeviceSecurity: async (): Promise<{
-    isRootDetected: boolean;
-    isTestKeysBuild: boolean;
-    isStrongBoxSupported: boolean;
-    securityLevel: string;
-  }> => {
+  checkDeviceSecurity: async (): Promise<DeviceSecurityStatus> => {
     return SecurityModule.checkDeviceSecurity();
+  },
+};
+
+export const updateNative = {
+  getAppVersion: async (): Promise<{ versionName: string; versionCode: number }> => {
+    return UpdateModule.getAppVersion();
+  },
+
+  checkForUpdate: async (): Promise<UpdateInfo> => {
+    return UpdateModule.checkForUpdate();
+  },
+
+  startDownload: async (apkUrl: string): Promise<{ success: boolean; filePath: string }> => {
+    return UpdateModule.startDownload(apkUrl);
+  },
+
+  canInstallUnknownApps: async (): Promise<boolean> => {
+    return UpdateModule.canInstallUnknownApps();
+  },
+
+  openInstallPermissionSettings: async (): Promise<boolean> => {
+    return UpdateModule.openInstallPermissionSettings();
+  },
+
+  installApk: async (filePath: string): Promise<boolean> => {
+    return UpdateModule.installApk(filePath);
   },
 };
 

@@ -12,8 +12,9 @@ import { radius, typography, spacing, useTheme } from '../../theme';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
-import { FingerprintIcon, KeyIcon, ShieldCheckIcon } from '../../components/icons';
+import { FingerprintIcon, KeyIcon, ShieldCheckIcon, ShieldAlertIcon } from '../../components/icons';
 import { useVaultStore } from '../../stores/vaultStore';
+import { vaultNative } from '../../services/nativeBridge';
 import { useTranslation } from '../../i18n';
 
 export const UnlockScreen: React.FC = () => {
@@ -31,16 +32,51 @@ export const UnlockScreen: React.FC = () => {
 
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [lockoutRemaining, setLockoutRemaining] = useState<number>(0);
+  const [failedAttempts, setFailedAttempts] = useState<number>(0);
+
+  const checkLockout = async () => {
+    try {
+      const status = await vaultNative.getLockoutStatus();
+      setFailedAttempts(status.failedAttempts || 0);
+      if (status.isLockedOut && status.remainingSeconds > 0) {
+        setLockoutRemaining(status.remainingSeconds);
+      } else {
+        setLockoutRemaining(0);
+      }
+    } catch {
+      // Ignored
+    }
+  };
 
   useEffect(() => {
-    // Automatically attempt biometric unlock if available on screen mount
-    if (isBiometricAvailable) {
+    checkLockout();
+  }, []);
+
+  useEffect(() => {
+    if (lockoutRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutRemaining]);
+
+  useEffect(() => {
+    // Automatically attempt biometric unlock if available on screen mount (and not locked out)
+    if (isBiometricAvailable && lockoutRemaining <= 0) {
       handleBiometricUnlock();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBiometricAvailable]);
+  }, [isBiometricAvailable, lockoutRemaining]);
 
   const handlePasswordUnlock = async () => {
+    if (lockoutRemaining > 0) return;
     if (!password) {
       setError(t('invalidPassword'));
       return;
@@ -50,19 +86,26 @@ export const UnlockScreen: React.FC = () => {
       const success = await unlock(password);
       if (success) {
         setPassword('');
+        setLockoutRemaining(0);
+        setFailedAttempts(0);
         ToastAndroid.show('Vault Unlocked', ToastAndroid.SHORT);
       } else {
         setError(t('invalidPassword'));
+        await checkLockout();
       }
     } catch (e: any) {
       setError(e?.message || t('invalidPassword'));
+      await checkLockout();
     }
   };
 
   const handleBiometricUnlock = async () => {
+    if (lockoutRemaining > 0) return;
     try {
       const success = await unlockWithBiometrics();
       if (success) {
+        setLockoutRemaining(0);
+        setFailedAttempts(0);
         ToastAndroid.show('Vault Unlocked via Biometrics', ToastAndroid.SHORT);
       }
     } catch {
@@ -86,15 +129,38 @@ export const UnlockScreen: React.FC = () => {
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('unlockSubtitle')}</Text>
       </View>
 
+      {/* Lockout Active Banner */}
+      {lockoutRemaining > 0 ? (
+        <Card style={styles.lockoutBanner}>
+          <View style={styles.lockoutIconRing}>
+            <ShieldAlertIcon size={28} color="#EF4444" />
+          </View>
+          <View style={styles.lockoutTextWrap}>
+            <Text style={styles.lockoutTitle}>Vault Locked for Security</Text>
+            <Text style={styles.lockoutCountdown}>
+              Try again in {lockoutRemaining}s
+            </Text>
+            <Text style={styles.lockoutDesc}>
+              Multiple incorrect master passwords detected ({failedAttempts} attempts).
+            </Text>
+          </View>
+        </Card>
+      ) : null}
+
       {/* Prominent Biometric Quick-Unlock Button if available */}
       {isBiometricSupported && isBiometricAvailable ? (
-        <Card style={styles.biometricCard} onPress={handleBiometricUnlock}>
-          <View style={styles.bioIconRing}>
-            <FingerprintIcon size={44} color={colors.primary} />
+        <Card
+          style={[styles.biometricCard, lockoutRemaining > 0 && styles.disabledCard]}
+          onPress={lockoutRemaining > 0 ? undefined : handleBiometricUnlock}
+        >
+          <View style={[styles.bioIconRing, lockoutRemaining > 0 && styles.disabledIconRing]}>
+            <FingerprintIcon size={44} color={lockoutRemaining > 0 ? colors.textMuted : colors.primary} />
           </View>
           <View style={styles.bioTextWrap}>
-            <Text style={[styles.bioTitle, { color: colors.text }]}>{t('biometricUnlockBtn')}</Text>
-            <Text style={[styles.bioSubtitle, { color: colors.textSecondary }]}>Touch sensor for instant hardware unlock</Text>
+            <Text style={[styles.bioTitle, { color: lockoutRemaining > 0 ? colors.textMuted : colors.text }]}>{t('biometricUnlockBtn')}</Text>
+            <Text style={[styles.bioSubtitle, { color: colors.textSecondary }]}>
+              {lockoutRemaining > 0 ? 'Disabled while vault is locked' : 'Touch sensor for instant hardware unlock'}
+            </Text>
           </View>
         </Card>
       ) : null}
@@ -109,7 +175,7 @@ export const UnlockScreen: React.FC = () => {
       ) : null}
 
       {/* Password Unlock Card */}
-      <Card style={styles.card}>
+      <Card style={[styles.card, lockoutRemaining > 0 && styles.disabledCard]}>
         <Input
           label={t('passwordLabel')}
           value={password}
@@ -117,15 +183,17 @@ export const UnlockScreen: React.FC = () => {
             setPassword(text);
             setError(null);
           }}
-          placeholder="Enter master password"
+          placeholder={lockoutRemaining > 0 ? `Locked (${lockoutRemaining}s remaining)` : "Enter master password"}
           isPassword
+          editable={lockoutRemaining === 0}
           error={error || errorMessage}
         />
 
         <Button
-          title={t('unlockBtn')}
+          title={lockoutRemaining > 0 ? `Locked (${lockoutRemaining}s)` : t('unlockBtn')}
           onPress={handlePasswordUnlock}
           loading={isLoading}
+          disabled={lockoutRemaining > 0 || !password}
           style={styles.submitBtn}
           icon={<KeyIcon size={20} color={colors.white} />}
         />
@@ -190,6 +258,51 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     lineHeight: typography.lineHeights.base,
     maxWidth: '85%',
+  },
+  lockoutBanner: {
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    marginBottom: spacing.lg,
+  },
+  lockoutIconRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  lockoutTextWrap: {
+    flex: 1,
+  },
+  lockoutTitle: {
+    color: '#EF4444',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.bold,
+  },
+  lockoutCountdown: {
+    color: '#F87171',
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.bold,
+    marginVertical: 2,
+  },
+  lockoutDesc: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSizes.xs,
+    lineHeight: 16,
+  },
+  disabledCard: {
+    opacity: 0.5,
+  },
+  disabledIconRing: {
+    borderColor: colors.border,
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
   },
   biometricCard: {
     padding: spacing.lg,

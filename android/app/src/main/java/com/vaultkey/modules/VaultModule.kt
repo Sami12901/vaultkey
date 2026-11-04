@@ -98,6 +98,21 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
     }
 
     @ReactMethod
+    fun getLockoutStatus(promise: Promise) {
+        try {
+            val (isLocked, remainingSec, attempts) = sessionManager.getLockoutStatus()
+            val map = Arguments.createMap().apply {
+                putBoolean("isLockedOut", isLocked)
+                putInt("remainingSeconds", remainingSec)
+                putInt("failedAttempts", attempts)
+            }
+            promise.resolve(map)
+        } catch (e: Exception) {
+            promise.reject("ERR_LOCKOUT_STATUS", e.message, e)
+        }
+    }
+
+    @ReactMethod
     fun lock(promise: Promise) {
         try {
             sessionManager.lock()
