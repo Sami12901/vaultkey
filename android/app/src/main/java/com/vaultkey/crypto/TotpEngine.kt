@@ -124,3 +124,4 @@ object TotpEngine {
         return generateTotp(secretBytes, epochSeconds, period, digits, algorithm)
     }
 }
+

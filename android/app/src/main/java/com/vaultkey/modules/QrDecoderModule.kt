@@ -68,3 +68,4 @@ class QrDecoderModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         }
     }
 }
+

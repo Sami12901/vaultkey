@@ -108,3 +108,4 @@ export class TotpEngine {
     return this.generateTotp(buf, epochSeconds, period, digits, algorithm);
   }
 }
+
