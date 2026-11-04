@@ -19,10 +19,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
       - name: Install Root Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run ESLint
         run: npm run lint
@@ -36,5 +35,5 @@ jobs:
       - name: Verify Windows Electron App
         working-directory: windows
         run: |
-          npm ci
+          npm install
           npm run build
