@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT" /></a>
+  <a href="https://github.com/Sami12901/vaultkey/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT" /></a>
   <a href="https://reactnative.dev"><img src="https://img.shields.io/badge/React%20Native-0.87-61DAFB.svg?logo=react" alt="React Native 0.87" /></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-Strict%205+-3178C6.svg?logo=typescript" alt="TypeScript Strict" /></a>
   <a href="https://www.android.com"><img src="https://img.shields.io/badge/Platform-Android-3DDC84.svg?logo=android" alt="Platform Android" /></a>
@@ -96,7 +96,7 @@ vaultkey/
 
 Clone the repository and install root dependencies:
 ```bash
-git clone https://github.com/<your-username>/vaultkey.git
+git clone https://github.com/Sami12901/vaultkey.git
 cd vaultkey
 npm install
 ```
@@ -154,7 +154,7 @@ npm run package
 
 ## Pre-Built Downloads (Releases)
 
-Ready-to-use binaries are published under the [GitHub Releases](https://github.com) tab:
+Ready-to-use binaries are published under the [GitHub Releases](https://github.com/Sami12901/vaultkey/releases) tab:
 - **Android APK**: `VaultKey-v1.0.0.apk`
 - **Windows Portable**: `VaultKey-v1.0.0-Portable.exe`
 - **Windows Installer**: `VaultKey-v1.0.0-Setup.exe`

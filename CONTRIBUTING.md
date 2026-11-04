@@ -29,7 +29,7 @@ If you suspect a security flaw in existing code, please follow the responsible d
 1. Fork the repository to your own GitHub account.
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/vaultkey.git
+   git clone https://github.com/Sami12901/vaultkey.git
    cd vaultkey
    ```
 3. Create a feature branch with a descriptive name:
