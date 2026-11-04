@@ -1,0 +1,40 @@
+name: VaultKey CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-verify:
+    name: Lint, Type Check & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Root Dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: TypeScript Type Check (Root React Native)
+        run: npx tsc --noEmit
+
+      - name: Run Jest Unit Tests
+        run: npm test
+
+      - name: Verify Windows Electron App
+        working-directory: windows
+        run: |
+          npm ci
+          npm run build

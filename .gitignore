@@ -1,0 +1,104 @@
+# ==============================================================================
+# VaultKey Repository .gitignore
+# Cross-platform: React Native (Android) + Windows Desktop (Electron) + Extension
+# ==============================================================================
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Node & Package Managers
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.bundle/
+
+# React Native & Metro
+.metro-health-check*
+*.jsbundle
+android/app/src/main/assets/index.android.bundle*
+DerivedData/
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+
+# Environment & Local Configurations
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+local.properties
+
+# Android & Gradle
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/.cxx/
+**/.gradle/
+*.iml
+*.hprof
+*.class
+
+# Android Keystores & Keys (Security: NEVER commit release keystores)
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+!android/app/debug.keystore
+
+# iOS / Xcode (if applicable)
+ios/build/
+ios/Pods/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+**/.xcode.env.local
+
+# Windows Desktop & Electron Build Artifacts
+windows/node_modules/
+windows/dist/
+windows/dist-electron/
+windows/release/
+windows/.vite/
+
+# Compiled Large Binaries & Installers (Host on GitHub Releases instead)
+*.apk
+*.aab
+*.exe
+*.msi
+*.msix
+*.appx
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.asar
+*.zip
+*.tar.gz
+*.7z
+*.rar
+
+# Fastlane
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+
+# Logs & Temporary files
+*.log
+*.tmp
+*.temp

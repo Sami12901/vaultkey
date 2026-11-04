@@ -1,0 +1,252 @@
+/* VaultKey Content Script Styling */
+
+/* In-field Shield Icon Trigger */
+.vaultkey-field-icon {
+  position: absolute !important;
+  width: 22px !important;
+  height: 22px !important;
+  cursor: pointer !important;
+  z-index: 2147483640 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #0B0F19 !important;
+  border: 1px solid #10B981 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.15s ease, background 0.15s ease !important;
+  user-select: none !important;
+  box-sizing: border-box !important;
+  padding: 2px !important;
+}
+
+.vaultkey-field-icon:hover {
+  transform: scale(1.1) !important;
+  background: #047857 !important;
+}
+
+.vaultkey-field-icon svg {
+  width: 14px !important;
+  height: 14px !important;
+  fill: #10B981 !important;
+}
+
+.vaultkey-field-icon:hover svg {
+  fill: #FFFFFF !important;
+}
+
+/* Floating In-page Autofill Dropdown */
+.vaultkey-dropdown {
+  position: absolute !important;
+  background: #0B0F19 !important;
+  border: 1px solid #1F2937 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(16, 185, 129, 0.2) !important;
+  z-index: 2147483645 !important;
+  min-width: 260px !important;
+  max-width: 340px !important;
+  overflow: hidden !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  color: #F8FAFC !important;
+  animation: vaultkey-fade-in 0.15s ease-out !important;
+  box-sizing: border-box !important;
+}
+
+.vaultkey-dropdown-header {
+  padding: 10px 14px !important;
+  background: #111827 !important;
+  border-bottom: 1px solid #1F2937 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #94A3B8 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+}
+
+.vaultkey-dropdown-list {
+  max-height: 220px !important;
+  overflow-y: auto !important;
+  padding: 4px !important;
+}
+
+.vaultkey-dropdown-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 10px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: background 0.12s ease !important;
+}
+
+.vaultkey-dropdown-item:hover {
+  background: rgba(16, 185, 129, 0.12) !important;
+}
+
+.vaultkey-item-avatar {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 6px !important;
+  background: #1F2937 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #10B981 !important;
+  font-weight: bold !important;
+  font-size: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+.vaultkey-item-info {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.vaultkey-item-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #F8FAFC !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.vaultkey-item-sub {
+  font-size: 11px !important;
+  color: #94A3B8 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Floating Auto-Save Prompt Banner (Top-Right of screen) */
+.vaultkey-save-banner {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  width: 330px !important;
+  background: #0B0F19 !important;
+  border: 1px solid #10B981 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(16, 185, 129, 0.25) !important;
+  z-index: 2147483647 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  color: #F8FAFC !important;
+  overflow: hidden !important;
+  animation: vaultkey-slide-down 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-sizing: border-box !important;
+}
+
+.vaultkey-save-banner-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 12px 14px !important;
+  background: #111827 !important;
+  border-bottom: 1px solid #1F2937 !important;
+}
+
+.vaultkey-save-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #10B981 !important;
+}
+
+.vaultkey-save-close {
+  background: transparent !important;
+  border: none !important;
+  color: #94A3B8 !important;
+  font-size: 16px !important;
+  cursor: pointer !important;
+  padding: 0 4px !important;
+  line-height: 1 !important;
+}
+
+.vaultkey-save-close:hover {
+  color: #F8FAFC !important;
+}
+
+.vaultkey-save-body {
+  padding: 14px !important;
+}
+
+.vaultkey-save-question {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #F8FAFC !important;
+  margin-bottom: 10px !important;
+  line-height: 1.4 !important;
+}
+
+.vaultkey-save-domain {
+  color: #38BDF8 !important;
+}
+
+.vaultkey-save-detail {
+  font-size: 12px !important;
+  color: #94A3B8 !important;
+  margin-bottom: 4px !important;
+  background: #1F2937 !important;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
+  word-break: break-all !important;
+}
+
+.vaultkey-save-actions {
+  display: flex !important;
+  gap: 8px !important;
+  margin-top: 14px !important;
+}
+
+.vaultkey-btn-save {
+  flex: 1 !important;
+  padding: 8px 14px !important;
+  background: #10B981 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  color: #FFFFFF !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  transition: background 0.15s ease !important;
+}
+
+.vaultkey-btn-save:hover {
+  background: #059669 !important;
+}
+
+.vaultkey-btn-dismiss {
+  padding: 8px 12px !important;
+  background: #1F2937 !important;
+  border: 1px solid #374151 !important;
+  border-radius: 8px !important;
+  color: #94A3B8 !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease !important;
+}
+
+.vaultkey-btn-dismiss:hover {
+  background: #374151 !important;
+  color: #F8FAFC !important;
+}
+
+@keyframes vaultkey-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vaultkey-slide-down {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

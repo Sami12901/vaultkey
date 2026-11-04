@@ -1,0 +1,8 @@
+node_modules/
+windows/
+extension/
+scripts/
+android/
+coverage/
+build/
+*.config.js
