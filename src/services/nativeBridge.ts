@@ -18,6 +18,8 @@ import {
   PickedMediaResult,
   VaultMediaInput,
   DecryptedVaultMediaResult,
+  AuthenticatorInput,
+  TotpCodeResult,
 } from '../types';
 
 const {
@@ -28,6 +30,8 @@ const {
   SecurityModule,
   BackupModule,
   UpdateModule,
+  PermissionsModule,
+  QrDecoderModule,
 } = NativeModules;
 
 export interface UpdateInfo {
@@ -245,6 +249,18 @@ export const vaultNative = {
   exportVaultMediaToGallery: async (itemId: string): Promise<boolean> => {
     return VaultModule.exportVaultMediaToGallery(itemId);
   },
+
+  saveAuthenticatorItem: async (data: AuthenticatorInput): Promise<string> => {
+    return VaultModule.saveAuthenticatorItem(data);
+  },
+
+  getTotpCode: async (itemId: string): Promise<TotpCodeResult> => {
+    return VaultModule.getTotpCode(itemId);
+  },
+
+  getAllActiveTotpCodes: async (): Promise<Array<TotpCodeResult & { id: string; issuer: string; accountName: string }>> => {
+    return VaultModule.getAllActiveTotpCodes();
+  },
 };
 
 export const biometricNative = {
@@ -372,5 +388,58 @@ export const backupNative = {
 
   deleteBackupFile: async (filePath: string): Promise<boolean> => {
     return BackupModule.deleteBackupFile(filePath);
+  },
+};
+
+export interface SetupPermissionsStatus {
+  autofillEnabled: boolean;
+  biometricsEnabled: boolean;
+  cameraGranted: boolean;
+  canInstallUnknownApps: boolean;
+  ignoringBatteryOptimizations: boolean;
+}
+
+export const permissionsNative = {
+  checkSetupStatus: async (): Promise<SetupPermissionsStatus> => {
+    if (PermissionsModule && PermissionsModule.checkSetupStatus) {
+      return PermissionsModule.checkSetupStatus();
+    }
+    return {
+      autofillEnabled: false,
+      biometricsEnabled: false,
+      cameraGranted: false,
+      canInstallUnknownApps: true,
+      ignoringBatteryOptimizations: true,
+    };
+  },
+
+  openAutofillSettings: async (): Promise<boolean> => {
+    if (PermissionsModule && PermissionsModule.openAutofillSettings) {
+      return PermissionsModule.openAutofillSettings();
+    }
+    return false;
+  },
+
+  openBatteryOptimizationSettings: async (): Promise<boolean> => {
+    if (PermissionsModule && PermissionsModule.openBatteryOptimizationSettings) {
+      return PermissionsModule.openBatteryOptimizationSettings();
+    }
+    return false;
+  },
+
+  openAppSettings: async (): Promise<boolean> => {
+    if (PermissionsModule && PermissionsModule.openAppSettings) {
+      return PermissionsModule.openAppSettings();
+    }
+    return false;
+  },
+};
+
+export const qrNative = {
+  decodeQrFromFile: async (filePathOrUri: string): Promise<{ success: boolean; text: string }> => {
+    if (QrDecoderModule && QrDecoderModule.decodeQrFromFile) {
+      return QrDecoderModule.decodeQrFromFile(filePathOrUri);
+    }
+    throw new Error('QrDecoderModule not available on this platform');
   },
 };

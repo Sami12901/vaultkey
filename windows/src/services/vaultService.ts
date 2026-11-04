@@ -55,6 +55,14 @@ export const vaultDesktop = {
     return api ? api.saveBankAccount(data) : '';
   },
 
+  saveAuthenticatorItem: async (data: any): Promise<string> => {
+    return api ? api.saveAuthenticatorItem(data) : '';
+  },
+
+  getTotpCode: async (itemId: string): Promise<{ code: string; remainingSeconds: number; period: number; progress: number } | null> => {
+    return api ? api.getTotpCode(itemId) : null;
+  },
+
   toggleFavorite: async (itemId: string): Promise<boolean> => {
     return api ? api.toggleFavorite(itemId) : false;
   },

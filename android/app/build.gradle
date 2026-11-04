@@ -82,8 +82,8 @@ android {
         applicationId "com.vaultkey"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1.0"
+        versionCode 3
+        versionName "1.2.0"
     }
     signingConfigs {
         debug {
@@ -119,6 +119,9 @@ dependencies {
     // SQLCipher encrypted database at rest
     implementation("net.zetetic:sqlcipher-android:4.6.1")
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
+
+    // Barcode / QR Code Parsing (Offline)
+    implementation("com.google.zxing:core:3.5.3")
 
     // AndroidX & Coroutines
     implementation("androidx.core:core-ktx:1.13.1")

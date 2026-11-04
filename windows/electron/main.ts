@@ -264,6 +264,8 @@ ipcMain.handle('vault:saveLoginItem', async (_, data) => storage.saveLoginItem(d
 ipcMain.handle('vault:saveSecureNote', async (_, data) => storage.saveSecureNote(data));
 ipcMain.handle('vault:saveCreditCard', async (_, data) => storage.saveCreditCard(data));
 ipcMain.handle('vault:saveBankAccount', async (_, data) => storage.saveBankAccount(data));
+ipcMain.handle('vault:saveAuthenticatorItem', async (_, data) => storage.saveAuthenticatorItem(data));
+ipcMain.handle('vault:getTotpCode', async (_, itemId) => storage.getTotpCode(itemId));
 ipcMain.handle('vault:toggleFavorite', async (_, itemId) => storage.toggleFavorite(itemId));
 ipcMain.handle('vault:deleteItem', async (_, itemId) => storage.deleteItem(itemId));
 

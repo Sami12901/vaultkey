@@ -17,7 +17,9 @@ class VaultPackage : ReactPackage {
             AutofillModule(reactContext),
             SecurityModule(reactContext),
             BackupModule(reactContext),
-            UpdateModule(reactContext)
+            UpdateModule(reactContext),
+            PermissionsModule(reactContext),
+            QrDecoderModule(reactContext)
         )
     }
 

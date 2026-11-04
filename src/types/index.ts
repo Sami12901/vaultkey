@@ -8,7 +8,8 @@ export type ItemType =
   | 'WIFI_CREDENTIAL'
   | 'SOFTWARE_LICENSE'
   | 'PASSKEY'
-  | 'SECURE_MEDIA';
+  | 'SECURE_MEDIA'
+  | 'AUTHENTICATOR_2FA';
 
 export interface VaultItemSummary {
   id: string;
@@ -107,6 +108,26 @@ export interface DecryptedFileResult {
   originalName: string;
   mimeType: string;
   sizeBytes: number;
+}
+
+export interface AuthenticatorInput {
+  title: string;
+  issuer: string;
+  accountName: string;
+  secret: string; // Base32
+  algorithm?: 'SHA1' | 'SHA256' | 'SHA512';
+  digits?: number;
+  period?: number;
+  folderId?: string | null;
+  isFavorite?: boolean;
+  tags?: string[];
+}
+
+export interface TotpCodeResult {
+  code: string;
+  remainingSeconds: number;
+  period: number;
+  progress: number;
 }
 
 export interface Folder {

@@ -10,12 +10,14 @@ import com.vaultkey.crypto.MemorySecurity
 import com.vaultkey.crypto.PassphraseOptions
 import com.vaultkey.crypto.PasswordGeneratorOptions
 import com.vaultkey.crypto.SecureRandomGenerator
+import com.vaultkey.crypto.TotpEngine
 import com.vaultkey.database.*
 import com.vaultkey.session.VaultSessionManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
+import java.util.Arrays
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
@@ -561,6 +563,139 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             promise.resolve(id)
         } catch (e: Exception) {
             promise.reject("ERR_SAVE", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun saveAuthenticatorItem(data: ReadableMap, promise: Promise) {
+        try {
+            if (!sessionManager.isUnlocked()) {
+                promise.reject("ERR_LOCKED", "Vault is locked")
+                return
+            }
+            val dek = sessionManager.getActiveDek()
+
+            val title = if (data.hasKey("title")) data.getString("title") ?: "2FA Authenticator" else "2FA Authenticator"
+            val issuer = if (data.hasKey("issuer")) data.getString("issuer") ?: "" else ""
+            val accountName = if (data.hasKey("accountName")) data.getString("accountName") ?: "" else ""
+            val rawSecret = if (data.hasKey("secret")) data.getString("secret") ?: "" else ""
+            val algorithm = if (data.hasKey("algorithm")) data.getString("algorithm") ?: "SHA1" else "SHA1"
+            val digits = if (data.hasKey("digits")) data.getInt("digits") else 6
+            val period = if (data.hasKey("period")) data.getInt("period") else 30
+
+            val folderId = if (data.hasKey("folderId") && !data.isNull("folderId")) data.getString("folderId") else null
+            val isFavorite = if (data.hasKey("isFavorite")) data.getBoolean("isFavorite") else false
+
+            val tags = mutableListOf<String>()
+            if (data.hasKey("tags") && !data.isNull("tags")) {
+                val tagsArr = data.getArray("tags")
+                if (tagsArr != null) {
+                    for (i in 0 until tagsArr.size()) {
+                        tagsArr.getString(i)?.let { tags.add(it) }
+                    }
+                }
+            }
+
+            val decodedSecret = TotpEngine.decodeBase32(rawSecret)
+            if (decodedSecret.isEmpty()) {
+                promise.reject("ERR_INVALID_SECRET", "Invalid Base32 secret key")
+                return
+            }
+
+            val encSecret = AesGcmCipher.encrypt(decodedSecret, dek)
+            Arrays.fill(decodedSecret, 0.toByte())
+
+            val itemId = dao.insertAuthenticatorItem(
+                title = title,
+                issuer = issuer,
+                accountName = accountName,
+                encryptedSecret = encSecret.ciphertext,
+                secretIv = encSecret.iv,
+                algorithm = algorithm,
+                digits = digits,
+                period = period,
+                folderId = folderId,
+                isFavorite = isFavorite,
+                tags = tags
+            )
+
+            dao.logAuditEvent("ITEM_CREATED", "2FA Authenticator created: $title", true)
+            promise.resolve(itemId)
+        } catch (e: Exception) {
+            promise.reject("ERR_SAVE", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun getTotpCode(itemId: String, promise: Promise) {
+        try {
+            if (!sessionManager.isUnlocked()) {
+                promise.reject("ERR_LOCKED", "Vault is locked")
+                return
+            }
+            val dek = sessionManager.getActiveDek()
+            val auth = dao.getAuthenticatorRecord(itemId) ?: run {
+                promise.reject("ERR_NOT_FOUND", "Authenticator record not found")
+                return
+            }
+
+            val secretBytes = AesGcmCipher.decrypt(auth.encryptedSecret, auth.secretIv, dek)
+            val res = TotpEngine.generateTotp(
+                secretBytes = secretBytes,
+                period = auth.period,
+                digits = auth.digits,
+                algorithm = auth.algorithm
+            )
+
+            val map = Arguments.createMap().apply {
+                putString("code", res.code)
+                putInt("remainingSeconds", res.remainingSeconds)
+                putInt("period", res.period)
+                putDouble("progress", res.progress.toDouble())
+            }
+            promise.resolve(map)
+        } catch (e: Exception) {
+            promise.reject("ERR_TOTP", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun getAllActiveTotpCodes(promise: Promise) {
+        try {
+            if (!sessionManager.isUnlocked()) {
+                promise.reject("ERR_LOCKED", "Vault is locked")
+                return
+            }
+            val dek = sessionManager.getActiveDek()
+            val records = dao.getAllAuthenticatorRecords()
+            val arr = Arguments.createArray()
+
+            for (auth in records) {
+                try {
+                    val secretBytes = AesGcmCipher.decrypt(auth.encryptedSecret, auth.secretIv, dek)
+                    val res = TotpEngine.generateTotp(
+                        secretBytes = secretBytes,
+                        period = auth.period,
+                        digits = auth.digits,
+                        algorithm = auth.algorithm
+                    )
+                    val map = Arguments.createMap().apply {
+                        putString("id", auth.vaultItemId)
+                        putString("issuer", auth.issuer)
+                        putString("accountName", auth.accountName)
+                        putString("code", res.code)
+                        putInt("remainingSeconds", res.remainingSeconds)
+                        putInt("period", res.period)
+                        putDouble("progress", res.progress.toDouble())
+                    }
+                    arr.pushMap(map)
+                } catch (e: Exception) {
+                    // Skip any unreadable item
+                }
+            }
+            promise.resolve(arr)
+        } catch (e: Exception) {
+            promise.reject("ERR_TOTP_ALL", e.message, e)
         }
     }
 

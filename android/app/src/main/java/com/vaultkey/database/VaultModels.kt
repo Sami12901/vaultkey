@@ -12,7 +12,8 @@ enum class ItemType {
     WIFI_CREDENTIAL,
     SOFTWARE_LICENSE,
     PASSKEY,
-    SECURE_MEDIA;
+    SECURE_MEDIA,
+    AUTHENTICATOR_2FA;
 
     companion object {
         fun fromString(value: String): ItemType {
@@ -185,4 +186,15 @@ data class SecureMediaRecord(
     val mediaType: String = "IMAGE",
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis()
+)
+
+data class AuthenticatorCredential(
+    val vaultItemId: String,
+    val issuer: String,
+    val accountName: String,
+    val encryptedSecret: ByteArray,
+    val secretIv: ByteArray,
+    val algorithm: String = "SHA1",
+    val digits: Int = 6,
+    val period: Int = 30
 )

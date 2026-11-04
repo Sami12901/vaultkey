@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "VaultKey - Zero-Knowledge Password Manager",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Autofill credentials, auto-save sign-up passwords, and generate secure passwords connected to VaultKey Desktop.",
   "permissions": [
     "activeTab",

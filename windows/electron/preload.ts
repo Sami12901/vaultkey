@@ -17,6 +17,8 @@ const vaultKeyApi = {
   saveSecureNote: (data: any) => ipcRenderer.invoke('vault:saveSecureNote', data),
   saveCreditCard: (data: any) => ipcRenderer.invoke('vault:saveCreditCard', data),
   saveBankAccount: (data: any) => ipcRenderer.invoke('vault:saveBankAccount', data),
+  saveAuthenticatorItem: (data: any) => ipcRenderer.invoke('vault:saveAuthenticatorItem', data),
+  getTotpCode: (itemId: string) => ipcRenderer.invoke('vault:getTotpCode', itemId),
   toggleFavorite: (itemId: string) => ipcRenderer.invoke('vault:toggleFavorite', itemId),
   deleteItem: (itemId: string) => ipcRenderer.invoke('vault:deleteItem', itemId),
 

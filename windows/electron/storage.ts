@@ -4,6 +4,7 @@ import os from 'os';
 import crypto from 'crypto';
 import { VaultCrypto, EncryptedData } from './crypto';
 import { DesktopBackupManager } from './backup';
+import { TotpEngine } from './totpEngine';
 
 export interface VaultConfig {
   salt: string; // base64
@@ -422,6 +423,67 @@ export class VaultStorage {
     this.logAuditEvent('ITEM_SAVED', `Bank account saved: ${item.title}`, true);
     this.persistVault();
     return id;
+  }
+
+  saveAuthenticatorItem(data: any): string {
+    if (!this.memoryVault) throw new Error('Vault is locked');
+    const id = data.id || crypto.randomUUID();
+    const now = Date.now();
+
+    const existingIndex = this.memoryVault.items.findIndex(i => i.id === id);
+    const item = {
+      id,
+      type: 'AUTHENTICATOR_2FA',
+      title: data.title || data.issuer || '2FA Authenticator',
+      subtitle: `${data.issuer || ''} (${data.accountName || ''})`,
+      folderId: data.folderId || null,
+      isFavorite: !!data.isFavorite,
+      createdAt: existingIndex >= 0 ? this.memoryVault.items[existingIndex].createdAt : now,
+      updatedAt: now,
+      tags: data.tags || [],
+      authenticatorData: {
+        issuer: data.issuer || '',
+        accountName: data.accountName || '',
+        secret: data.secret || '',
+        algorithm: data.algorithm || 'SHA1',
+        digits: data.digits || 6,
+        period: data.period || 30,
+      },
+    };
+
+    if (existingIndex >= 0) {
+      this.memoryVault.items[existingIndex] = item;
+    } else {
+      this.memoryVault.items.push(item);
+    }
+    this.logAuditEvent('ITEM_SAVED', `2FA Authenticator saved: ${item.title}`, true);
+    this.persistVault();
+    return id;
+  }
+
+  getTotpCode(itemId: string): any {
+    if (!this.memoryVault) throw new Error('Vault is locked');
+    const item = this.memoryVault.items.find(i => i.id === itemId);
+    if (!item) throw new Error('Item not found');
+
+    const auth = item.authenticatorData || (item.loginData?.totpSecret ? {
+      secret: item.loginData.totpSecret,
+      digits: item.loginData.totpDigits || 6,
+      period: item.loginData.totpPeriod || 30,
+      algorithm: item.loginData.totpAlgorithm || 'SHA1'
+    } : null);
+
+    if (!auth || !auth.secret) {
+      throw new Error('No 2FA secret found for this item');
+    }
+
+    return TotpEngine.generateFromBase32(
+      auth.secret,
+      Math.floor(Date.now() / 1000),
+      auth.period || 30,
+      auth.digits || 6,
+      auth.algorithm || 'SHA1'
+    );
   }
 
   toggleFavorite(itemId: string): boolean {

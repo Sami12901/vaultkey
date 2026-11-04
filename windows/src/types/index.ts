@@ -1,4 +1,4 @@
-export type ItemType = 'LOGIN' | 'SECURE_NOTE' | 'CREDENTIAL_CARD' | 'BANK_ACCOUNT';
+export type ItemType = 'LOGIN' | 'SECURE_NOTE' | 'CREDENTIAL_CARD' | 'BANK_ACCOUNT' | 'AUTHENTICATOR_2FA';
 
 export interface VaultItemSummary {
   id: string;

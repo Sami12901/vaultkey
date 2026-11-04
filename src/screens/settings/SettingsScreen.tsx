@@ -42,6 +42,8 @@ import {
   UpdateInfo,
 } from '../../services/nativeBridge';
 import { UpdateModal } from '../../components/common/UpdateModal';
+import { SetupOnboardingModal } from '../../components/common/SetupOnboardingModal';
+import { CloudSyncGuideModal } from '../../components/common/CloudSyncGuideModal';
 import { calculatePasswordEntropy } from '../../utils/entropyUtils';
 import { useVaultStore } from '../../stores/vaultStore';
 import { useTranslation, Language, SUPPORTED_LANGUAGES } from '../../i18n';
@@ -142,6 +144,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [manualUpdateInfo, setManualUpdateInfo] = useState<UpdateInfo | null>(null);
   const [showManualUpdateModal, setShowManualUpdateModal] = useState(false);
+
+  // Setup & Sync Guide Modals
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [showSyncGuideModal, setShowSyncGuideModal] = useState(false);
 
   const handleManualCheckUpdate = async () => {
     setCheckingUpdate(true);
@@ -514,6 +520,30 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </View>
             <ChevronRightIcon size={20} color={colors.textMuted} />
           </TouchableOpacity>
+
+          {/* Setup & Permissions Checklist */}
+          <TouchableOpacity style={styles.navRow} onPress={() => setShowSetupModal(true)}>
+            <View style={styles.navRowLeft}>
+              <ShieldCheckIcon size={22} color={colors.primary} />
+              <View style={styles.navText}>
+                <Text style={styles.settingLabel}>Setup & Permissions Checklist</Text>
+                <Text style={styles.settingDesc}>Autofill, biometrics, camera and battery setup</Text>
+              </View>
+            </View>
+            <ChevronRightIcon size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Zero-Knowledge Sync Guide */}
+          <TouchableOpacity style={styles.navRow} onPress={() => setShowSyncGuideModal(true)}>
+            <View style={styles.navRowLeft}>
+              <CloudDownloadIcon size={22} color="#10B981" />
+              <View style={styles.navText}>
+                <Text style={styles.settingLabel}>Zero-Knowledge Sync Guide</Text>
+                <Text style={styles.settingDesc}>Animated E2EE Cloud & Wi-Fi LAN architecture</Text>
+              </View>
+            </View>
+            <ChevronRightIcon size={20} color={colors.textMuted} />
+          </TouchableOpacity>
         </Card>
 
         {/* Master Password & Vault Administration */}
@@ -745,6 +775,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         visible={showManualUpdateModal}
         updateInfo={manualUpdateInfo}
         onClose={() => setShowManualUpdateModal(false)}
+      />
+
+      {/* Setup & Permissions Checklist Modal */}
+      <SetupOnboardingModal
+        visible={showSetupModal}
+        onClose={() => setShowSetupModal(false)}
+      />
+
+      {/* Zero-Knowledge Cloud & LAN Sync Guide Modal */}
+      <CloudSyncGuideModal
+        visible={showSyncGuideModal}
+        onClose={() => setShowSyncGuideModal(false)}
       />
     </View>
   );

@@ -73,7 +73,8 @@ class VaultDao(private val dbHelper: VaultDatabaseHelper) {
                 wifi.ssid,
                 lic.software_name,
                 lc.urls_json as login_urls,
-                sm.file_name, sm.media_type, sm.size_bytes, sm.mime_type
+                sm.file_name, sm.media_type, sm.size_bytes, sm.mime_type,
+                auth.issuer, auth.account_name
             FROM vault_items v
             LEFT JOIN folders f ON v.folder_id = f.id
             LEFT JOIN login_credentials lc ON v.id = lc.vault_item_id
@@ -83,6 +84,7 @@ class VaultDao(private val dbHelper: VaultDatabaseHelper) {
             LEFT JOIN wifi_credentials wifi ON v.id = wifi.vault_item_id
             LEFT JOIN software_licenses lic ON v.id = lic.vault_item_id
             LEFT JOIN secure_media sm ON v.id = sm.vault_item_id
+            LEFT JOIN authenticator_credentials auth ON v.id = auth.vault_item_id
             $whereSql
             ORDER BY $orderBy
             LIMIT $limit OFFSET $offset
@@ -156,6 +158,13 @@ class VaultDao(private val dbHelper: VaultDatabaseHelper) {
                 }
                 ItemType.SECURE_NOTE.name -> {
                     subtitle = "Secure Note"
+                }
+                ItemType.AUTHENTICATOR_2FA.name -> {
+                    val authIssuer = if (cursor.columnCount > 23 && !cursor.isNull(23)) cursor.getString(23) else ""
+                    val authAccount = if (cursor.columnCount > 24 && !cursor.isNull(24)) cursor.getString(24) else ""
+                    subtitle = if (authIssuer.isNotBlank() && authAccount.isNotBlank()) "$authIssuer ($authAccount)" else if (authIssuer.isNotBlank()) authIssuer else authAccount
+                    extraData["issuer"] = authIssuer
+                    extraData["accountName"] = authAccount
                 }
                 else -> {
                     subtitle = null
@@ -887,6 +896,116 @@ class VaultDao(private val dbHelper: VaultDatabaseHelper) {
                 false
             }
         }
+    }
+
+    // ---------------------------------------------------------
+    // Authenticator 2FA CRUD
+    // ---------------------------------------------------------
+
+    fun insertAuthenticatorItem(
+        title: String,
+        issuer: String,
+        accountName: String,
+        encryptedSecret: ByteArray,
+        secretIv: ByteArray,
+        algorithm: String = "SHA1",
+        digits: Int = 6,
+        period: Int = 30,
+        folderId: String? = null,
+        isFavorite: Boolean = false,
+        tags: List<String> = emptyList()
+    ): String {
+        val itemId = java.util.UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+
+        db.beginTransaction()
+        try {
+            val itemCv = ContentValues().apply {
+                put("id", itemId)
+                put("type", ItemType.AUTHENTICATOR_2FA.name)
+                put("title", title)
+                put("folder_id", folderId)
+                put("is_favorite", if (isFavorite) 1 else 0)
+                put("created_at", now)
+                put("updated_at", now)
+                put("is_trashed", 0)
+            }
+            db.insertOrThrow("vault_items", null, itemCv)
+
+            val cv = ContentValues().apply {
+                put("vault_item_id", itemId)
+                put("issuer", issuer)
+                put("account_name", accountName)
+                put("encrypted_secret", encryptedSecret)
+                put("secret_iv", secretIv)
+                put("algorithm", algorithm)
+                put("digits", digits)
+                put("period", period)
+            }
+            db.insertOrThrow("authenticator_credentials", null, cv)
+
+            for (tag in tags) {
+                val tagId = getOrCreateTag(tag)
+                val tagCv = ContentValues().apply {
+                    put("item_id", itemId)
+                    put("tag_id", tagId)
+                }
+                db.insertWithOnConflict("item_tags", null, tagCv, SQLiteDatabase.CONFLICT_IGNORE)
+            }
+
+            db.setTransactionSuccessful()
+            return itemId
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun getAuthenticatorRecord(itemId: String): AuthenticatorCredential? {
+        val cursor = db.rawQuery(
+            "SELECT vault_item_id, issuer, account_name, encrypted_secret, secret_iv, algorithm, digits, period FROM authenticator_credentials WHERE vault_item_id = ?",
+            arrayOf(itemId)
+        )
+        return if (cursor.moveToFirst()) {
+            val record = AuthenticatorCredential(
+                vaultItemId = cursor.getString(0),
+                issuer = cursor.getString(1),
+                accountName = cursor.getString(2),
+                encryptedSecret = cursor.getBlob(3),
+                secretIv = cursor.getBlob(4),
+                algorithm = cursor.getString(5),
+                digits = cursor.getInt(6),
+                period = cursor.getInt(7)
+            )
+            cursor.close()
+            record
+        } else {
+            cursor.close()
+            null
+        }
+    }
+
+    fun getAllAuthenticatorRecords(): List<AuthenticatorCredential> {
+        val cursor = db.rawQuery(
+            "SELECT vault_item_id, issuer, account_name, encrypted_secret, secret_iv, algorithm, digits, period FROM authenticator_credentials",
+            null
+        )
+        val list = mutableListOf<AuthenticatorCredential>()
+        while (cursor.moveToNext()) {
+            list.add(
+                AuthenticatorCredential(
+                    vaultItemId = cursor.getString(0),
+                    issuer = cursor.getString(1),
+                    accountName = cursor.getString(2),
+                    encryptedSecret = cursor.getBlob(3),
+                    secretIv = cursor.getBlob(4),
+                    algorithm = cursor.getString(5),
+                    digits = cursor.getInt(6),
+                    period = cursor.getInt(7)
+                )
+            )
+        }
+        cursor.close()
+        return list
     }
 
     // ---------------------------------------------------------

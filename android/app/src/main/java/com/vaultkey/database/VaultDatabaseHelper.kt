@@ -269,6 +269,27 @@ class VaultDatabaseHelper(private val context: Context) {
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_secure_media_type ON secure_media(media_type)")
 
         db.execSQL("""
+            CREATE TABLE IF NOT EXISTS authenticator_credentials (
+                vault_item_id TEXT PRIMARY KEY NOT NULL,
+                issuer TEXT NOT NULL,
+                account_name TEXT NOT NULL,
+                encrypted_secret BLOB NOT NULL,
+                secret_iv BLOB NOT NULL,
+                algorithm TEXT NOT NULL DEFAULT 'SHA1',
+                digits INTEGER NOT NULL DEFAULT 6,
+                period INTEGER NOT NULL DEFAULT 30,
+                FOREIGN KEY (vault_item_id) REFERENCES vault_items(id) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_authenticator_issuer ON authenticator_credentials(issuer)")
+
+        try { db.execSQL("ALTER TABLE login_credentials ADD COLUMN encrypted_totp_secret BLOB") } catch (e: Exception) {}
+        try { db.execSQL("ALTER TABLE login_credentials ADD COLUMN totp_secret_iv BLOB") } catch (e: Exception) {}
+        try { db.execSQL("ALTER TABLE login_credentials ADD COLUMN totp_period INTEGER NOT NULL DEFAULT 30") } catch (e: Exception) {}
+        try { db.execSQL("ALTER TABLE login_credentials ADD COLUMN totp_digits INTEGER NOT NULL DEFAULT 6") } catch (e: Exception) {}
+        try { db.execSQL("ALTER TABLE login_credentials ADD COLUMN totp_algorithm TEXT NOT NULL DEFAULT 'SHA1'") } catch (e: Exception) {}
+
+        db.execSQL("""
             CREATE TABLE IF NOT EXISTS audit_events (
                 id TEXT PRIMARY KEY NOT NULL,
                 timestamp INTEGER NOT NULL,

@@ -313,4 +313,13 @@ export const ShieldAlertIcon: React.FC<IconProps> = ({ size = 24, color = '#EF44
   </Svg>
 );
 
+export const QrCodeIcon: React.FC<IconProps> = ({ size = 24, color = '#F8FAFC' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="3" y="3" width="7" height="7" rx="1" />
+    <Rect x="14" y="3" width="7" height="7" rx="1" />
+    <Rect x="14" y="14" width="7" height="7" rx="1" />
+    <Rect x="3" y="14" width="7" height="7" rx="1" />
+  </Svg>
+);
+
 export * from './BrandIcons';

@@ -24,20 +24,23 @@ import { SecurityDashboardScreen } from './src/screens/security/SecurityDashboar
 import { BackupRestoreScreen } from './src/screens/backup/BackupRestoreScreen';
 import { SettingsScreen } from './src/screens/settings/SettingsScreen';
 import { AuditLogScreen } from './src/screens/settings/AuditLogScreen';
+import { AuthenticatorScreen } from './src/screens/vault/AuthenticatorScreen';
 import {
   LockIcon,
   KeyIcon,
   ShieldCheckIcon,
-  BackupIcon,
   SettingsIcon,
   FolderIcon,
+  QrCodeIcon,
 } from './src/components/icons';
 import { SecurityWarningModal } from './src/components/common/SecurityWarningModal';
 import { UpdateModal } from './src/components/common/UpdateModal';
-import { securityNative, updateNative, UpdateInfo } from './src/services/nativeBridge';
+import { SetupOnboardingModal } from './src/components/common/SetupOnboardingModal';
+import { securityNative, updateNative, UpdateInfo, permissionsNative } from './src/services/nativeBridge';
 
 type ActiveScreen =
   | 'HOME'
+  | 'AUTHENTICATOR'
   | 'DETAIL'
   | 'EDIT'
   | 'GENERATOR'
@@ -56,6 +59,7 @@ function AppContent(): React.JSX.Element {
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState(false);
 
   useEffect(() => {
     checkInitialStatus();
@@ -73,6 +77,13 @@ function AppContent(): React.JSX.Element {
       if (info && info.hasUpdate) {
         setUpdateInfo(info);
         setShowUpdateModal(true);
+      }
+    }).catch(() => {});
+
+    // Check post-install setup & permissions
+    permissionsNative.checkSetupStatus().then(status => {
+      if (status && (!status.autofillEnabled || !status.ignoringBatteryOptimizations)) {
+        setShowSetupModal(true);
       }
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -177,6 +188,8 @@ function AppContent(): React.JSX.Element {
         );
       case 'AUDIT_LOG':
         return <AuditLogScreen onBack={() => setCurrentScreen('SETTINGS')} />;
+      case 'AUTHENTICATOR':
+        return <AuthenticatorScreen />;
       case 'HOME':
       default:
         return (
@@ -201,9 +214,9 @@ function AppContent(): React.JSX.Element {
   // Show bottom tab bar only on top-level tabs
   const showBottomNav =
     currentScreen === 'HOME' ||
+    currentScreen === 'AUTHENTICATOR' ||
     currentScreen === 'GENERATOR' ||
     currentScreen === 'SECURITY' ||
-    currentScreen === 'BACKUP' ||
     currentScreen === 'SETTINGS';
 
   return (
@@ -230,6 +243,27 @@ function AppContent(): React.JSX.Element {
               ]}
             >
               Vault
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setCurrentScreen('AUTHENTICATOR')}
+            accessibilityRole="button"
+            accessibilityLabel="2FA"
+          >
+            <QrCodeIcon
+              size={22}
+              color={currentScreen === 'AUTHENTICATOR' ? colors.primaryLight : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                { color: currentScreen === 'AUTHENTICATOR' ? colors.primaryLight : colors.textMuted },
+                currentScreen === 'AUTHENTICATOR' && styles.tabLabelActive,
+              ]}
+            >
+              2FA Codes
             </Text>
           </TouchableOpacity>
 
@@ -277,27 +311,6 @@ function AppContent(): React.JSX.Element {
 
           <TouchableOpacity
             style={styles.tabItem}
-            onPress={() => setCurrentScreen('BACKUP')}
-            accessibilityRole="button"
-            accessibilityLabel="Backup"
-          >
-            <BackupIcon
-              size={22}
-              color={currentScreen === 'BACKUP' ? colors.primaryLight : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: currentScreen === 'BACKUP' ? colors.primaryLight : colors.textMuted },
-                currentScreen === 'BACKUP' && styles.tabLabelActive,
-              ]}
-            >
-              Backup
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
             onPress={() => setCurrentScreen('SETTINGS')}
             accessibilityRole="button"
             accessibilityLabel="Settings"
@@ -331,6 +344,12 @@ function AppContent(): React.JSX.Element {
         visible={showUpdateModal}
         updateInfo={updateInfo}
         onClose={() => setShowUpdateModal(false)}
+      />
+
+      {/* Permissions & Setup Checklist Modal */}
+      <SetupOnboardingModal
+        visible={showSetupModal}
+        onClose={() => setShowSetupModal(false)}
       />
     </View>
   );
