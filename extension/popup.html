@@ -302,6 +302,7 @@
     <button class="tab-btn active" data-tab="tab-logins">Logins</button>
     <button class="tab-btn" data-tab="tab-search">Search</button>
     <button class="tab-btn" data-tab="tab-generator">Generator</button>
+    <button class="tab-btn" data-tab="tab-pairing">Pairing</button>
   </div>
 
   <!-- 1. Logins Tab -->
@@ -349,9 +350,22 @@
     <button class="btn-copy" style="width:100%;" id="btn-fill-gen">Fill into Active Page</button>
   </div>
 
+  <!-- 4. Pairing Tab -->
+  <div class="tab-content" id="tab-pairing">
+    <div style="margin-bottom: 12px; font-size: 12px; color: #94A3B8; line-height: 1.5;">
+      To securely connect with VaultKey Desktop, copy the <strong>Pairing Token</strong> from <em>Desktop Settings &rarr; Browser Extension Bridge Security</em> and paste it below.
+    </div>
+    <div style="margin-bottom: 12px;">
+      <label style="font-size: 11px; color: #94A3B8; display: block; margin-bottom: 4px;">Bridge Secret Token</label>
+      <input type="password" class="search-bar" id="pairing-token-input" placeholder="Paste 64-character token here..." style="font-family: monospace; letter-spacing: 1px;" />
+    </div>
+    <button class="btn-generate" id="btn-save-pairing">Save & Connect</button>
+    <div id="pairing-status-msg" style="font-size: 11px; text-align: center; margin-top: 8px;"></div>
+  </div>
+
   <!-- Footer -->
   <div class="footer">
-    <span>VaultKey v1.0.0</span>
+    <span>VaultKey v1.1.0</span>
     <button class="btn-lock" id="btn-lock-vault">Lock Vault</button>
   </div>
 

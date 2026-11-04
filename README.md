@@ -38,6 +38,11 @@ Built with a unified cryptographic core, VaultKey provides seamless access acros
 - **Hardware-Backed Biometrics**: Android Keystore with StrongBox Keymaster / TEE hardware integration.
 - **Zero Plaintext In-Memory**: Sensitive fields in Kotlin are strictly handled in character/byte arrays and zeroized immediately with `MemorySecurity.wipe()`. Plaintext secrets never touch persistent JavaScript memory.
 - **Native Android Autofill Service**: 100% Kotlin `AutofillService` operating without booting JavaScript engines for sub-100ms response and anti-phishing eTLD+1 domain validation.
+- **Root, Frida & Debugger Defense**: Native Kotlin environment integrity checks examining `su` binary paths, test-keys build tags, busybox mounts, active Frida instrumentation hooks, and standard Frida debugging ports (27042, 27043) with in-app security alerts.
+- **Mandatory Master Password Entropy**: Real-time Shannon bit-entropy calculation requiring $\ge 60$ bits and minimum 12 characters with character set diversity before setting or changing a Master Password.
+- **Brute-Force Lockout & Exponential Backoff**: Multi-tiered lockout mechanism (5 failed attempts $\rightarrow$ 30s, 7 attempts $\rightarrow$ 2min, 10+ attempts $\rightarrow$ 15min) with persistent countdown timer to prevent offline/online dictionary attacks.
+- **In-App Auto-Update with Cryptographic Verification**: Seamless GitHub Releases updater verifying downloaded APK SHA-256 checksums and matching X.509 package signing certificates against the running host application before triggering installation.
+- **Desktop & Extension Mutual Authentication**: Localhost bridge (`127.0.0.1:49152`) protected by strict browser extension origin validation and a persistent 256-bit shared pairing secret token with constant-time equality validation.
 - **Screen & Clipboard Protection**: Active `FLAG_SECURE` blocks screenshots and task-switcher previews; automated 30-second clipboard clearing.
 - **Authenticated Backup Container**: Standalone `.vaultkey` binary export format protected by PBKDF2/Argon2id + AES-256-GCM.
 - **Bilingual Support**: Native English and Bengali (বাংলা) interface.

@@ -151,6 +151,14 @@ export const vaultDesktop = {
     return api && api.setStartupSettings ? api.setStartupSettings(openAtLogin) : false;
   },
 
+  getBridgeToken: async (): Promise<string> => {
+    return api && api.getBridgeToken ? api.getBridgeToken() : '';
+  },
+
+  regenerateBridgeToken: async (): Promise<string> => {
+    return api && api.regenerateBridgeToken ? api.regenerateBridgeToken() : '';
+  },
+
   hideWindow: async (): Promise<void> => {
     if (api && api.hideWindow) api.hideWindow();
   },

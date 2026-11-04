@@ -40,6 +40,7 @@ export interface UpdateInfo {
   apkUrl: string;
   apkName: string;
   apkSize: number;
+  expectedSha256?: string;
 }
 
 export interface DownloadProgress {
@@ -325,6 +326,10 @@ export const updateNative = {
 
   installApk: async (filePath: string): Promise<boolean> => {
     return UpdateModule.installApk(filePath);
+  },
+
+  verifyAndInstallApk: async (filePath: string, expectedSha256?: string): Promise<{ success: boolean; sha256?: string }> => {
+    return UpdateModule.verifyAndInstallApk(filePath, expectedSha256 || null);
   },
 };
 

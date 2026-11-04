@@ -1,4 +1,5 @@
 import http from 'http';
+import crypto from 'crypto';
 import { VaultStorage } from './storage';
 
 export class ExtensionBridge {
@@ -41,11 +42,46 @@ export class ExtensionBridge {
     }
   }
 
+  private isAllowedOrigin(origin?: string): boolean {
+    if (!origin) return true; // Direct non-browser callers or background service workers
+    // Allow Chromium & Firefox extension schemes
+    return /^((chrome|edge)-extension:\/\/[a-z0-9]+|moz-extension:\/\/[a-f0-9-]+)$/i.test(origin);
+  }
+
+  private isTokenValid(req: http.IncomingMessage): boolean {
+    const authHeader = req.headers['authorization'];
+    const tokenHeader = req.headers['x-vaultkey-token'];
+    let provided = '';
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      provided = authHeader.substring(7).trim();
+    } else if (typeof tokenHeader === 'string') {
+      provided = tokenHeader.trim();
+    }
+
+    if (!provided) return false;
+    const expected = this.storage.getBridgeToken();
+    if (!expected || provided.length !== expected.length) return false;
+    try {
+      return crypto.timingSafeEqual(Buffer.from(provided, 'utf8'), Buffer.from(expected, 'utf8'));
+    } catch {
+      return false;
+    }
+  }
+
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    const origin = req.headers.origin || '*';
-    res.setHeader('Access-Control-Allow-Origin', origin);
+    const rawOrigin = req.headers.origin;
+
+    // Reject untrusted web origins claiming to be extensions
+    if (rawOrigin && !this.isAllowedOrigin(rawOrigin)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Forbidden: Untrusted Origin' }));
+      return;
+    }
+
+    const allowOrigin = rawOrigin || '*';
+    res.setHeader('Access-Control-Allow-Origin', allowOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-VaultKey-Client');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-VaultKey-Client, X-VaultKey-Token');
     res.setHeader('Content-Type', 'application/json');
 
     if (req.method === 'OPTIONS') {
@@ -69,14 +105,28 @@ export class ExtensionBridge {
         JSON.stringify({
           success: true,
           state,
+          paired: this.isTokenValid(req),
           app: 'VaultKey Desktop',
-          version: '1.0.0',
+          version: '1.1.0',
         })
       );
       return;
     }
 
     if (req.method === 'POST') {
+      // Mutual authentication: enforce shared pairing secret token
+      if (!this.isTokenValid(req)) {
+        res.writeHead(401);
+        res.end(
+          JSON.stringify({
+            success: false,
+            error: 'Unauthorized: Invalid or missing bridge pairing token',
+            paired: false,
+          })
+        );
+        return;
+      }
+
       let bodyStr = '';
       req.on('data', (chunk) => {
         bodyStr += chunk;

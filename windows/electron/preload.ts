@@ -56,6 +56,10 @@ const vaultKeyApi = {
   getStartupSettings: () => ipcRenderer.invoke('app:getStartupSettings'),
   setStartupSettings: (openAtLogin: boolean) => ipcRenderer.invoke('app:setStartupSettings', openAtLogin),
 
+  // Browser Bridge Authentication
+  getBridgeToken: () => ipcRenderer.invoke('bridge:getToken'),
+  regenerateBridgeToken: () => ipcRenderer.invoke('bridge:regenerateToken'),
+
   // Events
   onVaultUpdated: (callback: () => void) => {
     const handler = () => callback();

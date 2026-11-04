@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initGenerator();
   initSearch();
   initLockBtn();
+  initPairingTab();
 });
 
 // 1. Tabs
@@ -32,12 +33,20 @@ function initStatus() {
   const text = document.getElementById('status-text');
 
   chrome.runtime.sendMessage({ action: 'CHECK_STATUS' }, (res) => {
-    if (res && res.success && res.state === 'UNLOCKED') {
-      dot.className = 'status-dot online';
-      text.innerText = 'Connected';
-    } else if (res && res.state === 'LOCKED') {
-      dot.className = 'status-dot locked';
-      text.innerText = 'Vault Locked';
+    if (res && res.success) {
+      if (res.paired === false) {
+        dot.className = 'status-dot locked';
+        text.innerText = 'Pairing Required';
+      } else if (res.state === 'UNLOCKED') {
+        dot.className = 'status-dot online';
+        text.innerText = 'Connected';
+      } else if (res.state === 'LOCKED') {
+        dot.className = 'status-dot locked';
+        text.innerText = 'Vault Locked';
+      } else {
+        dot.className = 'status-dot';
+        text.innerText = 'Uninitialized';
+      }
     } else {
       dot.className = 'status-dot';
       text.innerText = 'App Closed';
@@ -80,7 +89,13 @@ async function initCurrentTab() {
 function loadMatchesForDomain(domain, listEl) {
   chrome.runtime.sendMessage({ action: 'GET_MATCHES', domain }, (res) => {
     if (!res || !res.success) {
-      if (res && res.state === 'LOCKED') {
+      if (res && (res.error === 'UNAUTHORIZED' || res.paired === false)) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            🔑 <strong>Pairing Required</strong><br/>
+            Mutual authentication token required. Go to the <strong>Pairing</strong> tab and enter your secret token from Desktop Settings.
+          </div>`;
+      } else if (res && res.state === 'LOCKED') {
         listEl.innerHTML = `
           <div class="empty-state">
             🔒 <strong>Desktop Vault is Locked</strong><br/>
@@ -355,6 +370,49 @@ function initLockBtn() {
       listEl.innerHTML = '<div class="empty-state">🔒 Vault is now locked.</div>';
     });
   });
+}
+
+// 7. Pairing
+function initPairingTab() {
+  const input = document.getElementById('pairing-token-input');
+  const btn = document.getElementById('btn-save-pairing');
+  const msg = document.getElementById('pairing-status-msg');
+
+  chrome.runtime.sendMessage({ action: 'GET_BRIDGE_TOKEN' }, (res) => {
+    if (res && res.token && input) {
+      input.value = res.token;
+    }
+  });
+
+  if (btn && input) {
+    btn.addEventListener('click', () => {
+      const token = input.value.trim();
+      if (!token) {
+        if (msg) {
+          msg.style.color = '#EF4444';
+          msg.innerText = 'Please enter a valid pairing token.';
+        }
+        return;
+      }
+
+      btn.innerText = 'Saving...';
+      chrome.runtime.sendMessage({ action: 'SET_BRIDGE_TOKEN', token }, () => {
+        btn.innerText = 'Saved!';
+        if (msg) {
+          msg.style.color = '#10B981';
+          msg.innerText = '✓ Token saved! Connecting...';
+        }
+        setTimeout(() => {
+          btn.innerText = 'Save & Connect';
+          initStatus();
+          if (currentDomain) {
+            const listEl = document.getElementById('logins-list');
+            if (listEl) loadMatchesForDomain(currentDomain, listEl);
+          }
+        }, 800);
+      });
+    });
+  }
 }
 
 function escapeHtml(str) {

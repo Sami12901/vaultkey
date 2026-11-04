@@ -429,3 +429,12 @@ ipcMain.handle('app:setStartupSettings', async (_, openAtLogin: boolean) => {
   storage.updateSettings({ startAtLogin: openAtLogin });
   return true;
 });
+
+// Browser Extension Bridge Pairing & Token Management
+ipcMain.handle('bridge:getToken', async () => {
+  return storage.getBridgeToken();
+});
+
+ipcMain.handle('bridge:regenerateToken', async () => {
+  return storage.regenerateBridgeToken();
+});

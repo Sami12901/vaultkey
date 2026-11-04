@@ -40,3 +40,4 @@ describe('calculatePasswordEntropy', () => {
     expect(res.score).toBeGreaterThanOrEqual(3);
   });
 });
+

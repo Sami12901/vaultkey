@@ -20,7 +20,7 @@ interface UpdateModalProps {
   onClose: () => void;
 }
 
-type UpdateStep = 'PROMPT' | 'DOWNLOADING' | 'READY_TO_INSTALL' | 'PERMISSION_NEEDED';
+type UpdateStep = 'PROMPT' | 'DOWNLOADING' | 'VERIFYING' | 'READY_TO_INSTALL' | 'PERMISSION_NEEDED';
 
 export const UpdateModal: React.FC<UpdateModalProps> = ({ visible, updateInfo, onClose }) => {
   const { colors } = useTheme();
@@ -71,19 +71,20 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ visible, updateInfo, o
       const res = await updateNative.startDownload(updateInfo.apkUrl);
       if (res.success && res.filePath) {
         setDownloadedFilePath(res.filePath);
-        // Check if unknown app installs are allowed
+        setStep('VERIFYING');
+
+        // Check permission and verify APK signing certificate + checksum
         const canInstall = await updateNative.canInstallUnknownApps();
         if (canInstall) {
+          await updateNative.verifyAndInstallApk(res.filePath, updateInfo.expectedSha256);
           setStep('READY_TO_INSTALL');
-          // Auto trigger install
-          await updateNative.installApk(res.filePath);
         } else {
           setStep('PERMISSION_NEEDED');
         }
       }
     } catch (err: any) {
       setStep('PROMPT');
-      setErrorMsg(err?.message || 'Download failed. Please check your network connection.');
+      setErrorMsg(err?.message || 'Download failed or cryptographic verification failed.');
     }
   };
 
@@ -105,9 +106,9 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ visible, updateInfo, o
         setStep('PERMISSION_NEEDED');
         return;
       }
-      await updateNative.installApk(downloadedFilePath);
+      await updateNative.verifyAndInstallApk(downloadedFilePath, updateInfo.expectedSha256);
     } catch (err: any) {
-      Alert.alert('Installation Error', err?.message || 'Failed to launch installer');
+      Alert.alert('Verification/Installation Error', err?.message || 'Failed to verify or launch installer');
     }
   };
 
@@ -224,6 +225,20 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ visible, updateInfo, o
               >
                 <Text style={styles.btnPrimaryText}>Allow Permission in Settings</Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+          {step === 'VERIFYING' && (
+            <View style={styles.content}>
+              <View style={styles.readyBox}>
+                <ActivityIndicator size="large" color="#10B981" />
+                <Text style={[styles.readyTitle, { color: colors.text, marginTop: 12 }]}>
+                  Verifying Cryptographic Integrity
+                </Text>
+                <Text style={[styles.readySubtitle, { color: colors.textSecondary }]}>
+                  Checking SHA-256 digest and comparing package signing certificates...
+                </Text>
+              </View>
             </View>
           )}
 
@@ -445,3 +460,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

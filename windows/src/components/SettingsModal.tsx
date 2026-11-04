@@ -36,6 +36,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [autoLockSeconds, setAutoLockSeconds] = useState<number>(300);
   const [screenSecurity, setScreenSecurity] = useState<boolean>(true);
 
+  const [bridgeToken, setBridgeToken] = useState<string>('');
+  const [showBridgeToken, setShowBridgeToken] = useState<boolean>(false);
+  const [tokenCopied, setTokenCopied] = useState<boolean>(false);
+
   useEffect(() => {
     if (isOpen) {
       vaultDesktop.getSettings().then((s: any) => {
@@ -50,8 +54,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           setStartAtLogin(res.openAtLogin);
         }
       });
+      vaultDesktop.getBridgeToken().then((token) => {
+        if (token) setBridgeToken(token);
+      });
     }
   }, [isOpen]);
+
+  const handleCopyBridgeToken = async () => {
+    if (!bridgeToken) return;
+    await vaultDesktop.copySecure(bridgeToken, 'Bridge Token', 60);
+    setTokenCopied(true);
+    setTimeout(() => setTokenCopied(false), 2000);
+  };
+
+  const handleRegenerateBridgeToken = async () => {
+    if (window.confirm('Regenerating this token will disconnect your browser extension until you enter the new token. Continue?')) {
+      const newToken = await vaultDesktop.regenerateBridgeToken();
+      setBridgeToken(newToken);
+      setTokenCopied(false);
+    }
+  };
 
   const handleToggleRunInBackground = async (val: boolean) => {
     setRunInBackground(val);
@@ -431,6 +453,110 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <option value={3600}>{t('hours1') || '1 Hour'}</option>
                 <option value={0}>{t('never') || 'Never'}</option>
               </select>
+            </div>
+          </div>
+
+          {/* Browser Extension Bridge Security */}
+          <div
+            style={{
+              padding: '18px',
+              borderRadius: '12px',
+              backgroundColor: colors.cardSecondary,
+              border: `1px solid ${colors.border}`,
+              marginBottom: '24px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: colors.text }}>
+                Browser Extension Bridge Security
+              </h3>
+              <span
+                style={{
+                  fontSize: '11px',
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                  color: '#10B981',
+                  fontWeight: 600,
+                }}
+              >
+                127.0.0.1:49152 Active
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: colors.textSecondary, marginBottom: '14px', lineHeight: '1.5' }}>
+              VaultKey protects your passwords with mutual shared-secret token authentication and strict extension origin verification. Other local programs cannot query your vault without this pairing token.
+            </p>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+              <input
+                type={showBridgeToken ? 'text' : 'password'}
+                readOnly
+                value={bridgeToken || 'Generating token...'}
+                style={{
+                  flex: 1,
+                  fontFamily: 'Courier New, Courier, monospace',
+                  fontSize: '12px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: `1px solid ${colors.border}`,
+                  backgroundColor: colors.background,
+                  color: colors.text,
+                  letterSpacing: showBridgeToken ? '1px' : '3px',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowBridgeToken(!showBridgeToken)}
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  border: `1px solid ${colors.border}`,
+                  backgroundColor: colors.card,
+                  color: colors.textSecondary,
+                  cursor: 'pointer',
+                }}
+              >
+                {showBridgeToken ? 'Hide' : 'Show'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyBridgeToken}
+                style={{
+                  padding: '8px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: tokenCopied ? '#059669' : colors.primary,
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {tokenCopied ? 'Copied!' : 'Copy Token'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={handleRegenerateBridgeToken}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#EF4444',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  padding: 0,
+                }}
+              >
+                Regenerate Pairing Token
+              </button>
             </div>
           </div>
 

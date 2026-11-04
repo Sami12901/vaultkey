@@ -146,3 +146,4 @@ export function calculatePasswordEntropy(password: string): EntropyResult {
     feedback,
   };
 }
+

@@ -682,4 +682,33 @@ export class VaultStorage {
     this.persistVault();
     return { importedCount: count };
   }
+
+  getBridgeToken(): string {
+    const bridgeFile = path.join(this.baseDir, 'bridge_auth.json');
+    if (fs.existsSync(bridgeFile)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(bridgeFile, 'utf8'));
+        if (data && typeof data.token === 'string' && data.token.length >= 32) {
+          return data.token;
+        }
+      } catch (err) {
+        console.warn('Failed to parse bridge_auth.json, generating new token:', err);
+      }
+    }
+    return this.regenerateBridgeToken();
+  }
+
+  regenerateBridgeToken(): string {
+    const bridgeFile = path.join(this.baseDir, 'bridge_auth.json');
+    const token = crypto.randomBytes(32).toString('hex');
+    try {
+      fs.writeFileSync(bridgeFile, JSON.stringify({ token, createdAt: Date.now() }, null, 2), {
+        encoding: 'utf8',
+        mode: 0o600,
+      });
+    } catch (err) {
+      console.error('Failed to save bridge_auth.json:', err);
+    }
+    return token;
+  }
 }

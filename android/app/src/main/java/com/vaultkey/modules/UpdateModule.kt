@@ -1,6 +1,7 @@
 package com.vaultkey.modules
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -16,6 +17,7 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
@@ -95,6 +97,10 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
 
                 val hasUpdate = isNewerVersion(tagName, currentVersion) && apkUrl.isNotEmpty()
 
+                // Extract SHA-256 hash if present in release changelog/body
+                val sha256Regex = Regex("(?i)sha-?256[:\\s=]+([a-f0-9]{64})")
+                val expectedSha256 = sha256Regex.find(changelog)?.groupValues?.get(1) ?: ""
+
                 val result = Arguments.createMap().apply {
                     putBoolean("hasUpdate", hasUpdate)
                     putString("latestVersion", tagName)
@@ -105,6 +111,7 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                     putString("apkUrl", apkUrl)
                     putString("apkName", apkName)
                     putDouble("apkSize", apkSize.toDouble())
+                    putString("expectedSha256", expectedSha256)
                 }
                 promise.resolve(result)
             } catch (e: Exception) {
@@ -229,7 +236,7 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
     }
 
     @ReactMethod
-    fun installApk(filePath: String, promise: Promise) {
+    fun verifyAndInstallApk(filePath: String, expectedSha256: String?, promise: Promise) {
         try {
             val apkFile = File(filePath)
             if (!apkFile.exists()) {
@@ -237,6 +244,30 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
                 return
             }
 
+            // 1. Calculate and verify file SHA-256 digest
+            val actualSha256 = calculateFileSha256(apkFile)
+            if (!expectedSha256.isNullOrBlank()) {
+                val cleanExpected = expectedSha256.trim().lowercase()
+                if (actualSha256 != cleanExpected) {
+                    apkFile.delete()
+                    promise.reject(
+                        "ERR_CHECKSUM_MISMATCH",
+                        "Security Warning: APK checksum mismatch! Expected $cleanExpected, found $actualSha256. File deleted."
+                    )
+                    return
+                }
+            }
+
+            // 2. Cryptographic signature and package name verification
+            try {
+                verifyApkSignatureAndPackage(apkFile)
+            } catch (sec: SecurityException) {
+                apkFile.delete()
+                promise.reject("ERR_SIGNATURE_MISMATCH", sec.message, sec)
+                return
+            }
+
+            // 3. Permission check for Android O+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!reactApplicationContext.packageManager.canRequestPackageInstalls()) {
                     promise.reject("ERR_PERMISSION_REQUIRED", "Permission to install unknown packages required")
@@ -257,9 +288,88 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
             }
 
             reactApplicationContext.startActivity(installIntent)
-            promise.resolve(true)
+            val res = Arguments.createMap().apply {
+                putBoolean("success", true)
+                putString("sha256", actualSha256)
+            }
+            promise.resolve(res)
         } catch (e: Exception) {
             promise.reject("ERR_INSTALL", e.message, e)
+        }
+    }
+
+    @ReactMethod
+    fun installApk(filePath: String, promise: Promise) {
+        verifyAndInstallApk(filePath, null, promise)
+    }
+
+    private fun calculateFileSha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            while (input.read(buffer).also { bytesRead = it } != -1) {
+                digest.update(buffer, 0, bytesRead)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun getCertFingerprint(certBytes: ByteArray): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        return md.digest(certBytes).joinToString("") { "%02x".format(it) }
+    }
+
+    private fun verifyApkSignatureAndPackage(file: File) {
+        val pm = reactApplicationContext.packageManager
+        val currentPackageName = reactApplicationContext.packageName
+
+        val archiveFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            @Suppress("DEPRECATION")
+            PackageManager.GET_SIGNATURES
+        }
+
+        val archiveInfo = pm.getPackageArchiveInfo(file.absolutePath, archiveFlags)
+            ?: throw SecurityException("Unable to inspect APK package: corrupted or invalid archive format")
+
+        if (archiveInfo.packageName != currentPackageName) {
+            throw SecurityException("Package ID mismatch! Expected '$currentPackageName' but found '${archiveInfo.packageName}'")
+        }
+
+        val archiveFingerprints: List<String> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            archiveInfo.signingInfo?.apkContentsSigners?.map { getCertFingerprint(it.toByteArray()) } ?: emptyList()
+        } else {
+            @Suppress("DEPRECATION")
+            archiveInfo.signatures?.map { getCertFingerprint(it.toByteArray()) } ?: emptyList()
+        }
+
+        if (archiveFingerprints.isEmpty()) {
+            throw SecurityException("APK archive has no valid cryptographic signatures")
+        }
+
+        val currentAppInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            pm.getPackageInfo(currentPackageName, PackageManager.GET_SIGNING_CERTIFICATES)
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageInfo(currentPackageName, PackageManager.GET_SIGNATURES)
+        }
+
+        val currentFingerprints: List<String> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            currentAppInfo.signingInfo?.apkContentsSigners?.map { getCertFingerprint(it.toByteArray()) } ?: emptyList()
+        } else {
+            @Suppress("DEPRECATION")
+            currentAppInfo.signatures?.map { getCertFingerprint(it.toByteArray()) } ?: emptyList()
+        }
+
+        if (currentFingerprints.isEmpty()) {
+            throw SecurityException("Host application signing certificates could not be determined")
+        }
+
+        val isCertMatch = archiveFingerprints.any { currentFingerprints.contains(it) }
+        if (!isCertMatch) {
+            throw SecurityException("APK signature mismatch! The downloaded update was not signed with the legitimate VaultKey key. Installation aborted.")
         }
     }
 
@@ -288,3 +398,4 @@ class UpdateModule(reactContext: ReactApplicationContext) : ReactContextBaseJava
         }
     }
 }
+
