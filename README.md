@@ -161,12 +161,15 @@ npm run package
 
 ---
 
-## Pre-Built Downloads (Releases)
+## Pre-Built Downloads (Latest Release: v1.2.0)
 
-Ready-to-use binaries are published under the [GitHub Releases](https://github.com/Sami12901/vaultkey/releases) tab:
-- **Android APK**: `VaultKey-v1.0.0.apk`
-- **Windows Portable**: `VaultKey-v1.0.0-Portable.exe`
-- **Windows Installer**: `VaultKey-v1.0.0-Setup.exe`
+Ready-to-use production binaries are published under [GitHub Releases v1.2.0](https://github.com/Sami12901/vaultkey/releases/tag/v1.2.0):
+
+| Platform | Binary Asset | Description | SHA-256 Checksum |
+| :--- | :--- | :--- | :--- |
+| **Android** | [`vaultkey-v1.2.0.apk`](https://github.com/Sami12901/vaultkey/releases/download/v1.2.0/vaultkey-v1.2.0.apk) | Native Android Mobile App with Kotlin Autofill, Keystore biometrics, and offline TOTP Authenticator | `DDC58BD375AEF2D6C9FC627178AB3BE2C44300C7563D82EE42AC2DD1777E5C0C` |
+| **Windows Portable** | [`VaultKey-1.2.0-Portable.exe`](https://github.com/Sami12901/vaultkey/releases/download/v1.2.0/VaultKey-1.2.0-Portable.exe) | Standalone portable executable (zero installation) with local encrypted SQLCipher storage | `94A9F00D4ED6F901F217F06BC12AC0C57FB159B1276CD98945FE9C98F82481A9` |
+| **Windows Setup** | [`VaultKey-Setup-1.2.0.exe`](https://github.com/Sami12901/vaultkey/releases/download/v1.2.0/VaultKey-Setup-1.2.0.exe) | Standard Windows NSIS installer with desktop/start-menu shortcuts and auto-updates | `87AB6D69FE7B9696E60A90D5152AB26F1EADB645D9CA0A9FAB57E5D03A33F002` |
 
 ---
 
