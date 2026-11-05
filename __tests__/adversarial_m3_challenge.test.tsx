@@ -1,6 +1,4 @@
 /// <reference types="node" />
-declare const global: any;
-declare const __dirname: string;
 declare const require: any;
 
 import React from 'react';
