@@ -107,7 +107,7 @@ export class ExtensionBridge {
           state,
           paired: this.isTokenValid(req),
           app: 'VaultKey Desktop',
-          version: '1.1.0',
+          version: '1.3.0',
         })
       );
       return;
@@ -164,19 +164,13 @@ export class ExtensionBridge {
         return;
       }
 
-      const domain = this.extractDomain(body.domain || body.url || '');
+      const targetDomain = this.extractDomain(body.domain || body.url || '');
       const allLogins = this.storage.getItemSummaries({ category: 'LOGIN' });
 
       const matches = allLogins.filter((item) => {
-        const itemDomain = this.extractDomain(item.website || item.subtitle || '');
-        if (!domain) return false;
-        if (itemDomain && (itemDomain.includes(domain) || domain.includes(itemDomain))) {
-          return true;
-        }
-        if (item.title && item.title.toLowerCase().includes(domain.split('.')[0])) {
-          return true;
-        }
-        return false;
+        if (!targetDomain) return false;
+        const itemDomain = this.extractDomain(item.website || '');
+        return !!(itemDomain && itemDomain === targetDomain);
       });
 
       res.writeHead(200);
@@ -184,7 +178,7 @@ export class ExtensionBridge {
         JSON.stringify({
           success: true,
           state: 'UNLOCKED',
-          domain,
+          domain: targetDomain,
           matches: matches.map((m) => ({
             id: m.id,
             title: m.title,

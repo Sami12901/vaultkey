@@ -123,7 +123,15 @@ export function extractDomain(urlOrTitle?: string | null): string | null {
   }
 
   // Remove path, query, fragment
-  raw = raw.split('/')[0].split('?')[0].split('#')[0].split(':')[0];
+  raw = raw.split('/')[0].split('?')[0].split('#')[0];
+
+  // Strip userinfo authority (e.g. google.com@attacker.com -> attacker.com)
+  if (raw.includes('@')) {
+    raw = raw.split('@').pop() || '';
+  }
+
+  // Remove port if present
+  raw = raw.split(':')[0];
 
   // Remove common leading prefixes
   if (raw.startsWith('www.')) {
@@ -138,7 +146,7 @@ export function extractDomain(urlOrTitle?: string | null): string | null {
   }
 
   // Check known services by keyword match
-  const words = urlOrTitle.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/);
+  const words = raw.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/);
   for (const word of words) {
     if (KNOWN_SERVICES[word]) {
       return KNOWN_SERVICES[word];
@@ -146,7 +154,7 @@ export function extractDomain(urlOrTitle?: string | null): string | null {
   }
 
   // If the whole stripped text matches a known service
-  const cleaned = urlOrTitle.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cleaned = raw.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   if (KNOWN_SERVICES[cleaned]) {
     return KNOWN_SERVICES[cleaned];
   }
@@ -190,8 +198,10 @@ export function getDomainColor(domainOrTitle?: string | null): string {
 
 /**
  * Returns a high-resolution favicon URL for a given domain.
- * Uses Google Favicon service with 128px resolution.
+ * @deprecated Remote Google Favicon requests have been eliminated from UI components (WebsiteIcon)
+ * to prevent domain metadata leakage and uphold zero-knowledge privacy. Retained for URL helper compatibility.
  */
 export function getFaviconUrl(domain: string): string {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
 }
+

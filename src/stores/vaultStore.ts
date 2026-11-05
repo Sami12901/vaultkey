@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import {
   VaultItemSummary,
   Folder,
@@ -110,6 +111,30 @@ export const vaultStore = {
       }
     } catch (e: any) {
       updateState({ lockState: 'LOCKED', isLoading: false, errorMessage: e?.message });
+    }
+  },
+
+  syncVaultStateOnActive: async () => {
+    try {
+      const isInit = await vaultNative.isInitialized();
+      if (!isInit) {
+        updateState({ lockState: 'UNINITIALIZED' });
+        return;
+      }
+      const rawState = await vaultNative.getVaultState();
+      if (rawState !== 'UNLOCKED' && state.lockState === 'UNLOCKED') {
+        const bioAvailable = await biometricNative.isBiometricUnlockAvailable().catch(() => false);
+        updateState({
+          lockState: 'LOCKED',
+          isBiometricAvailable: bioAvailable,
+          summaries: [],
+          securityAnalysis: null,
+        });
+      }
+    } catch {
+      if (state.lockState === 'UNLOCKED') {
+        updateState({ lockState: 'LOCKED', summaries: [], securityAnalysis: null });
+      }
     }
   },
 
@@ -301,3 +326,9 @@ export function useVaultStore() {
     ...vaultStore,
   };
 }
+
+AppState.addEventListener('change', (nextState: AppStateStatus) => {
+  if (nextState === 'active') {
+    vaultStore.syncVaultStateOnActive();
+  }
+});

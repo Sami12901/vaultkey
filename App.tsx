@@ -5,10 +5,11 @@ import {
   View,
   Text,
   ActivityIndicator,
-  TouchableOpacity,
   BackHandler,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from './src/theme/colors';
 import { typography, spacing, useTheme } from './src/theme';
 
@@ -25,13 +26,9 @@ import { BackupRestoreScreen } from './src/screens/backup/BackupRestoreScreen';
 import { SettingsScreen } from './src/screens/settings/SettingsScreen';
 import { AuditLogScreen } from './src/screens/settings/AuditLogScreen';
 import { AuthenticatorScreen } from './src/screens/vault/AuthenticatorScreen';
+import { BottomTabBar } from './src/components/common/BottomTabBar';
 import {
   LockIcon,
-  KeyIcon,
-  ShieldCheckIcon,
-  SettingsIcon,
-  FolderIcon,
-  QrCodeIcon,
 } from './src/components/icons';
 import { SecurityWarningModal } from './src/components/common/SecurityWarningModal';
 import { UpdateModal } from './src/components/common/UpdateModal';
@@ -50,8 +47,9 @@ type ActiveScreen =
   | 'AUDIT_LOG';
 
 function AppContent(): React.JSX.Element {
-  const { lockState, checkInitialStatus } = useVaultStore();
+  const { lockState, checkInitialStatus, syncVaultStateOnActive } = useVaultStore();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [currentScreen, setCurrentScreen] = useState<ActiveScreen>('HOME');
   const [selectedItem, setSelectedItem] = useState<VaultItemSummary | null>(null);
@@ -88,6 +86,18 @@ function AppContent(): React.JSX.Element {
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sync vault lock state when app returns to foreground from background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        syncVaultStateOnActive();
+      }
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [syncVaultStateOnActive]);
 
   // Hardware back button handler
   useEffect(() => {
@@ -148,7 +158,10 @@ function AppContent(): React.JSX.Element {
               setSelectedItem(item);
               setCurrentScreen('DETAIL');
             }}
-            onAddNew={() => setCurrentScreen('EDIT')}
+            onAddNew={() => {
+              setSelectedItem(null);
+              setCurrentScreen('EDIT');
+            }}
             onOpenSettings={() => setCurrentScreen('SETTINGS')}
             onOpenSecurity={() => setCurrentScreen('SECURITY')}
             onOpenGenerator={() => setCurrentScreen('GENERATOR')}
@@ -158,6 +171,7 @@ function AppContent(): React.JSX.Element {
       case 'EDIT':
         return (
           <ItemEditScreen
+            item={selectedItem}
             onBack={() => setCurrentScreen(selectedItem ? 'DETAIL' : 'HOME')}
             onSaved={() => {
               setCurrentScreen('HOME');
@@ -221,115 +235,15 @@ function AppContent(): React.JSX.Element {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.mainArea}>{renderScreen()}</View>
+      <View style={[styles.mainArea, !showBottomNav && { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {renderScreen()}
+      </View>
 
       {showBottomNav ? (
-        <View style={[styles.bottomBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setCurrentScreen('HOME')}
-            accessibilityRole="button"
-            accessibilityLabel="Vault"
-          >
-            <FolderIcon
-              size={22}
-              color={currentScreen === 'HOME' ? colors.primaryLight : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: currentScreen === 'HOME' ? colors.primaryLight : colors.textMuted },
-                currentScreen === 'HOME' && styles.tabLabelActive,
-              ]}
-            >
-              Vault
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setCurrentScreen('AUTHENTICATOR')}
-            accessibilityRole="button"
-            accessibilityLabel="2FA"
-          >
-            <QrCodeIcon
-              size={22}
-              color={currentScreen === 'AUTHENTICATOR' ? colors.primaryLight : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: currentScreen === 'AUTHENTICATOR' ? colors.primaryLight : colors.textMuted },
-                currentScreen === 'AUTHENTICATOR' && styles.tabLabelActive,
-              ]}
-            >
-              2FA Codes
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setCurrentScreen('GENERATOR')}
-            accessibilityRole="button"
-            accessibilityLabel="Generator"
-          >
-            <KeyIcon
-              size={22}
-              color={currentScreen === 'GENERATOR' ? colors.primaryLight : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: currentScreen === 'GENERATOR' ? colors.primaryLight : colors.textMuted },
-                currentScreen === 'GENERATOR' && styles.tabLabelActive,
-              ]}
-            >
-              Generator
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setCurrentScreen('SECURITY')}
-            accessibilityRole="button"
-            accessibilityLabel="Security"
-          >
-            <ShieldCheckIcon
-              size={22}
-              color={currentScreen === 'SECURITY' ? colors.primaryLight : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: currentScreen === 'SECURITY' ? colors.primaryLight : colors.textMuted },
-                currentScreen === 'SECURITY' && styles.tabLabelActive,
-              ]}
-            >
-              Security
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => setCurrentScreen('SETTINGS')}
-            accessibilityRole="button"
-            accessibilityLabel="Settings"
-          >
-            <SettingsIcon
-              size={22}
-              color={currentScreen === 'SETTINGS' ? colors.primaryLight : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.tabLabel,
-                { color: currentScreen === 'SETTINGS' ? colors.primaryLight : colors.textMuted },
-                currentScreen === 'SETTINGS' && styles.tabLabelActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <BottomTabBar
+          currentScreen={currentScreen as any}
+          onSelectTab={setCurrentScreen}
+        />
       ) : null}
 
       {/* Security Warning Modal for Root / Frida / Debugger */}
@@ -364,7 +278,7 @@ function MainContainer(): React.JSX.Element {
 
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <AppContent />
     </SafeAreaView>

@@ -43,6 +43,10 @@ export interface SecurityAnalysis {
   weakItemIds: string[];
   reusedItemIds: string[];
   oldItemIds: string[];
+  insecureHttpCount?: number;
+  insecureHttpItemIds?: string[];
+  missing2faCount?: number;
+  missing2faItemIds?: string[];
 }
 
 export interface BackupPreview {

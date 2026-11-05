@@ -140,8 +140,8 @@ export const SecurityDashboardModal: React.FC<SecurityDashboardModalProps> = ({
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+          {/* Stats Grid: Row 1 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
             <div
               style={{
                 backgroundColor: colors.cardSecondary,
@@ -185,6 +185,39 @@ export const SecurityDashboardModal: React.FC<SecurityDashboardModalProps> = ({
                 {analysis?.oldCount ?? 0}
               </div>
               <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>Old Passwords</div>
+            </div>
+          </div>
+
+          {/* Stats Grid: Row 2 (Insecure HTTP & Missing 2FA) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+            <div
+              style={{
+                backgroundColor: colors.cardSecondary,
+                padding: '16px',
+                borderRadius: '10px',
+                border: `1px solid ${colors.border}`,
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: (analysis?.insecureHttpCount ?? 0) > 0 ? colors.danger : colors.primary }}>
+                {analysis?.insecureHttpCount ?? 0}
+              </div>
+              <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>Insecure HTTP Accounts</div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: colors.cardSecondary,
+                padding: '16px',
+                borderRadius: '10px',
+                border: `1px solid ${colors.border}`,
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: (analysis?.missing2faCount ?? 0) > 0 ? colors.warning : colors.primary }}>
+                {analysis?.missing2faCount ?? 0}
+              </div>
+              <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>High-Risk Missing 2FA</div>
             </div>
           </div>
 

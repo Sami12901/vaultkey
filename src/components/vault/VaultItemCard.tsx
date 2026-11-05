@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { VaultItemSummary } from '../../types';
-import { colors } from '../../theme/colors';
-import { typography, spacing, useTheme } from '../../theme';
+import { typography, spacing, radius, useTheme } from '../../theme';
 import { Card } from '../common/Card';
 import { Badge } from '../common/Badge';
 import { WebsiteIcon } from '../common/WebsiteIcon';
@@ -36,11 +35,19 @@ export const VaultItemCard: React.FC<VaultItemCardProps> = ({
         />
 
         <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.title, { color: colors.text }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {item.title}
           </Text>
           {item.subtitle ? (
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+            <Text
+              style={[styles.subtitle, { color: colors.textMuted }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {item.subtitle}
             </Text>
           ) : null}
@@ -49,7 +56,7 @@ export const VaultItemCard: React.FC<VaultItemCardProps> = ({
             {item.folderName ? (
               <Badge label={item.folderName} variant="muted" style={styles.badge} />
             ) : null}
-            {item.tags.slice(0, 2).map(tag => (
+            {item.tags?.slice(0, 2).map(tag => (
               <Badge key={tag} label={tag} variant="accent" style={styles.badge} />
             ))}
           </View>
@@ -60,10 +67,11 @@ export const VaultItemCard: React.FC<VaultItemCardProps> = ({
             <TouchableOpacity
               onPress={onToggleFavorite}
               style={styles.favBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityRole="button"
               accessibilityLabel={item.isFavorite ? 'Remove favorite' : 'Mark favorite'}
             >
-              <StarIcon size={20} filled={item.isFavorite} />
+              <StarIcon size={20} color={item.isFavorite ? '#F59E0B' : colors.textMuted} filled={item.isFavorite} />
             </TouchableOpacity>
           ) : null}
           <ChevronRightIcon size={18} color={colors.textMuted} />
@@ -73,11 +81,12 @@ export const VaultItemCard: React.FC<VaultItemCardProps> = ({
   );
 };
 
-
 const styles = StyleSheet.create({
   card: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.base,
+    marginBottom: spacing.sm,
+    borderRadius: radius.lg,
   },
   row: {
     flexDirection: 'row',
@@ -85,19 +94,23 @@ const styles = StyleSheet.create({
   },
   iconMargin: {
     marginRight: spacing.md,
+    flexShrink: 0,
   },
   content: {
     flex: 1,
+    marginRight: spacing.sm,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   title: {
     fontSize: typography.fontSizes.base,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.text,
+    lineHeight: 22,
   },
   subtitle: {
     fontSize: typography.fontSizes.sm,
-    color: colors.textSecondary,
     marginTop: 2,
+    lineHeight: 18,
   },
   metaRow: {
     flexDirection: 'row',
@@ -112,7 +125,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginLeft: spacing.sm,
+    flexShrink: 0,
   },
   favBtn: {
     padding: spacing.xs,

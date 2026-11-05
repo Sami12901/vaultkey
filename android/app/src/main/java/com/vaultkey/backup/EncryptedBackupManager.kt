@@ -190,6 +190,21 @@ class EncryptedBackupManager(private val context: Context) {
                         itemJson.put("mediaData", dataObj)
                     }
                 }
+                ItemType.AUTHENTICATOR_2FA -> {
+                    val auth = dao.getAuthenticatorRecord(item.id)
+                    if (auth != null) {
+                        val plainSecret = AesGcmCipher.decryptToString(auth.encryptedSecret, auth.secretIv, dek)
+                        val dataObj = JSONObject().apply {
+                            put("issuer", auth.issuer)
+                            put("accountName", auth.accountName)
+                            put("secret", plainSecret)
+                            put("algorithm", auth.algorithm)
+                            put("digits", auth.digits)
+                            put("period", auth.period)
+                        }
+                        itemJson.put("authenticatorData", dataObj)
+                    }
+                }
                 else -> {}
             }
             itemsJson.put(itemJson)
@@ -513,6 +528,31 @@ class EncryptedBackupManager(private val context: Context) {
                         encryptedFilePath = "",
                         mediaType = mediaType,
                         notes = notes,
+                        folderId = folderId,
+                        isFavorite = isFavorite,
+                        tags = tags
+                    )
+                    importedCount++
+                }
+                ItemType.AUTHENTICATOR_2FA.name -> {
+                    val authData = itemJson.optJSONObject("authenticatorData") ?: continue
+                    val issuer = authData.optString("issuer", "")
+                    val accountName = authData.optString("accountName", "")
+                    val plainSecret = authData.optString("secret", "")
+                    val algorithm = authData.optString("algorithm", "SHA1")
+                    val digits = authData.optInt("digits", 6)
+                    val period = authData.optInt("period", 30)
+
+                    val encSecret = AesGcmCipher.encryptString(plainSecret, dek)
+                    dao.insertAuthenticatorItem(
+                        title = title,
+                        issuer = issuer,
+                        accountName = accountName,
+                        encryptedSecret = encSecret.ciphertext,
+                        secretIv = encSecret.iv,
+                        algorithm = algorithm,
+                        digits = digits,
+                        period = period,
                         folderId = folderId,
                         isFavorite = isFavorite,
                         tags = tags

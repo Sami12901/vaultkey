@@ -189,19 +189,27 @@ function autofillTabWithId(itemId, btn) {
       chrome.scripting.executeScript({
         target: { tabId: activeTabId },
         func: (u, p) => {
+          const setValueAndDispatch = (input, val) => {
+            if (!input) return;
+            const prototypeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+            if (prototypeSetter) {
+              prototypeSetter.call(input, val);
+            } else {
+              input.value = val;
+            }
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          };
+
           const passInputs = document.querySelectorAll('input[type="password"]');
           const userInputs = document.querySelectorAll('input[type="email"], input[name*="user" i], input[name*="login" i], input[name*="email" i], input[id*="user" i]');
 
           if (userInputs.length > 0 && u) {
-            userInputs[0].value = u;
-            userInputs[0].dispatchEvent(new Event('input', { bubbles: true }));
-            userInputs[0].dispatchEvent(new Event('change', { bubbles: true }));
+            setValueAndDispatch(userInputs[0], u);
           }
 
           if (passInputs.length > 0 && p) {
-            passInputs[0].value = p;
-            passInputs[0].dispatchEvent(new Event('input', { bubbles: true }));
-            passInputs[0].dispatchEvent(new Event('change', { bubbles: true }));
+            setValueAndDispatch(passInputs[0], p);
           }
         },
         args: [username, password]
@@ -267,12 +275,22 @@ function initGenerator() {
       chrome.scripting.executeScript({
         target: { tabId: activeTabId },
         func: (p) => {
+          const setValueAndDispatch = (input, val) => {
+            if (!input) return;
+            const prototypeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+            if (prototypeSetter) {
+              prototypeSetter.call(input, val);
+            } else {
+              input.value = val;
+            }
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          };
+
           const passInputs = document.querySelectorAll('input[type="password"]');
           if (passInputs.length > 0) {
             passInputs.forEach((inp) => {
-              inp.value = p;
-              inp.dispatchEvent(new Event('input', { bubbles: true }));
-              inp.dispatchEvent(new Event('change', { bubbles: true }));
+              setValueAndDispatch(inp, p);
             });
           }
         },

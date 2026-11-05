@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   StyleProp,
   ViewStyle,
@@ -15,7 +14,6 @@ import {
   extractDomain,
   getDomainInitial,
   getDomainColor,
-  getFaviconUrl,
 } from '../../utils/domainUtils';
 import { useVaultStore } from '../../stores/vaultStore';
 
@@ -37,7 +35,6 @@ export const WebsiteIcon: React.FC<WebsiteIconProps> = ({
   rounded = true,
 }) => {
   const { settings } = useVaultStore();
-  const [imageError, setImageError] = useState(false);
 
   const themeColors = getThemeColors(settings.theme);
   const borderRadius = rounded ? Math.round(size * 0.28) : 6;
@@ -128,43 +125,9 @@ export const WebsiteIcon: React.FC<WebsiteIconProps> = ({
     );
   }
 
-  // 4. Remote Favicon or beautiful monogram fallback
+  // 4. Privacy-preserving deterministic monogram avatar (eliminates remote favicon network requests)
   const brandColor = getDomainColor(domain);
   const initial = getDomainInitial(domain || title);
-
-  if (imageError) {
-    // Ultra-stylish monogram badge
-    return (
-      <View
-        style={[
-          styles.container,
-          {
-            width: size,
-            height: size,
-            borderRadius,
-            backgroundColor: brandColor,
-            borderColor: 'rgba(255, 255, 255, 0.25)',
-            borderWidth: 1.2,
-          },
-          style,
-        ]}
-      >
-        <Text
-          style={[
-            styles.monogramText,
-            {
-              fontSize: Math.round(size * 0.44),
-            },
-          ]}
-        >
-          {initial}
-        </Text>
-      </View>
-    );
-  }
-
-  const faviconUrl = getFaviconUrl(domain);
-  const imgSize = Math.round(size * 0.6);
 
   return (
     <View
@@ -174,19 +137,23 @@ export const WebsiteIcon: React.FC<WebsiteIconProps> = ({
           width: size,
           height: size,
           borderRadius,
-          backgroundColor: themeColors.cardSecondary,
-          borderColor: themeColors.border,
+          backgroundColor: brandColor,
+          borderColor: 'rgba(255, 255, 255, 0.25)',
           borderWidth: 1.2,
         },
         style,
       ]}
     >
-      <Image
-        source={{ uri: faviconUrl }}
-        style={{ width: imgSize, height: imgSize, borderRadius: 4 }}
-        resizeMode="contain"
-        onError={() => setImageError(true)}
-      />
+      <Text
+        style={[
+          styles.monogramText,
+          {
+            fontSize: Math.round(size * 0.44),
+          },
+        ]}
+      >
+        {initial}
+      </Text>
     </View>
   );
 };

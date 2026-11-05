@@ -19,6 +19,7 @@ import {
 import { useVaultStore } from '../../stores/vaultStore';
 import { useTranslation } from '../../i18n';
 import { VaultItemSummary } from '../../types';
+import { auditVaultCredentials } from '../../utils/securityAudit';
 
 interface SecurityDashboardScreenProps {
   onBack: () => void;
@@ -34,21 +35,30 @@ export const SecurityDashboardScreen: React.FC<SecurityDashboardScreenProps> = (
   const { securityAnalysis, summaries, refreshVaultData } = useVaultStore();
 
 
-  const [activeTab, setActiveTab] = useState<'ALL' | 'WEAK' | 'REUSED' | 'OLD'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'WEAK' | 'REUSED' | 'OLD' | 'HTTP' | '2FA'>('ALL');
 
   useEffect(() => {
     refreshVaultData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const score = securityAnalysis?.score ?? 100;
-  const weakCount = securityAnalysis?.weakCount ?? 0;
-  const reusedCount = securityAnalysis?.reusedCount ?? 0;
-  const oldCount = securityAnalysis?.oldCount ?? 0;
+  const clientAudit = auditVaultCredentials(
+    summaries.map(s => ({ id: s.id, type: s.type, title: s.title, website: s.website || undefined })),
+    summaries.filter(s => s.type === 'AUTHENTICATOR_2FA').map(s => ({ id: s.id, title: s.title, issuer: s.title }))
+  );
 
-  const weakIds = new Set(securityAnalysis?.weakItemIds ?? []);
-  const reusedIds = new Set(securityAnalysis?.reusedItemIds ?? []);
-  const oldIds = new Set(securityAnalysis?.oldItemIds ?? []);
+  const score = securityAnalysis?.score ?? clientAudit.score;
+  const weakCount = securityAnalysis?.weakCount ?? clientAudit.weakCount;
+  const reusedCount = securityAnalysis?.reusedCount ?? clientAudit.reusedCount;
+  const oldCount = securityAnalysis?.oldCount ?? clientAudit.oldCount;
+  const insecureHttpCount = securityAnalysis?.insecureHttpCount ?? clientAudit.insecureHttpCount ?? 0;
+  const missing2faCount = securityAnalysis?.missing2faCount ?? clientAudit.missing2faCount ?? 0;
+
+  const weakIds = new Set(securityAnalysis?.weakItemIds ?? clientAudit.weakItemIds);
+  const reusedIds = new Set(securityAnalysis?.reusedItemIds ?? clientAudit.reusedItemIds);
+  const oldIds = new Set(securityAnalysis?.oldItemIds ?? clientAudit.oldItemIds);
+  const httpIds = new Set(securityAnalysis?.insecureHttpItemIds ?? clientAudit.insecureHttpItemIds ?? []);
+  const twoFaIds = new Set(securityAnalysis?.missing2faItemIds ?? clientAudit.missing2faItemIds ?? []);
 
   const getFilteredItems = (): VaultItemSummary[] => {
     switch (activeTab) {
@@ -58,9 +68,15 @@ export const SecurityDashboardScreen: React.FC<SecurityDashboardScreenProps> = (
         return summaries.filter(s => reusedIds.has(s.id));
       case 'OLD':
         return summaries.filter(s => oldIds.has(s.id));
+      case 'HTTP':
+        return summaries.filter(s => httpIds.has(s.id));
+      case '2FA':
+        return summaries.filter(s => twoFaIds.has(s.id));
       case 'ALL':
       default:
-        return summaries.filter(s => weakIds.has(s.id) || reusedIds.has(s.id) || oldIds.has(s.id));
+        return summaries.filter(
+          s => weakIds.has(s.id) || reusedIds.has(s.id) || oldIds.has(s.id) || httpIds.has(s.id) || twoFaIds.has(s.id)
+        );
     }
   };
 
@@ -87,7 +103,6 @@ export const SecurityDashboardScreen: React.FC<SecurityDashboardScreenProps> = (
           </View>
           <Text style={[styles.scoreLabel, { color: colors.text }]}>{t('securityScore')}</Text>
           <Text style={[styles.scoreDesc, { color: colors.textSecondary }]}>
-
             {score >= 80
               ? 'Excellent vault security health'
               : score >= 50
@@ -96,7 +111,7 @@ export const SecurityDashboardScreen: React.FC<SecurityDashboardScreenProps> = (
           </Text>
         </Card>
 
-        {/* Issue Cards */}
+        {/* Issue Cards Grid */}
         <View style={styles.metricsGrid}>
           <TouchableOpacity
             style={[styles.metricCard, activeTab === 'WEAK' && styles.metricCardActive]}
@@ -129,6 +144,29 @@ export const SecurityDashboardScreen: React.FC<SecurityDashboardScreenProps> = (
           </TouchableOpacity>
         </View>
 
+        {/* Second Row: Insecure HTTP & Missing 2FA */}
+        <View style={styles.metricsGrid}>
+          <TouchableOpacity
+            style={[styles.metricCard, activeTab === 'HTTP' && styles.metricCardActive]}
+            onPress={() => setActiveTab(activeTab === 'HTTP' ? 'ALL' : 'HTTP')}
+          >
+            <Text style={[styles.metricCount, insecureHttpCount > 0 && styles.dangerText]}>
+              {insecureHttpCount}
+            </Text>
+            <Text style={styles.metricTitle}>Insecure HTTP</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.metricCard, activeTab === '2FA' && styles.metricCardActive]}
+            onPress={() => setActiveTab(activeTab === '2FA' ? 'ALL' : '2FA')}
+          >
+            <Text style={[styles.metricCount, missing2faCount > 0 && styles.warningText]}>
+              {missing2faCount}
+            </Text>
+            <Text style={styles.metricTitle}>Missing 2FA</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Actionable items list */}
         <View style={styles.listHeaderRow}>
           <Text style={styles.listHeaderTitle}>
@@ -138,7 +176,11 @@ export const SecurityDashboardScreen: React.FC<SecurityDashboardScreenProps> = (
               ? t('weakPasswords')
               : activeTab === 'REUSED'
               ? t('reusedPasswords')
-              : t('oldPasswords')}
+              : activeTab === 'OLD'
+              ? t('oldPasswords')
+              : activeTab === 'HTTP'
+              ? 'Insecure HTTP Credentials'
+              : 'High-Risk Accounts Lacking 2FA'}
           </Text>
           <Badge label={`${filteredItems.length} items`} variant="muted" />
         </View>

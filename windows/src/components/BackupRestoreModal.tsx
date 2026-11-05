@@ -19,7 +19,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
   const { colors } = useTheme();
   const { t } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<'BACKUP' | 'RESTORE' | 'JSON'>('BACKUP');
+  const [activeTab, setActiveTab] = useState<'BACKUP' | 'RESTORE' | 'JSON' | 'CSV'>('BACKUP');
 
   // Backup state
   const [backupPassword, setBackupPassword] = useState<string>('');
@@ -37,6 +37,11 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
   // JSON state
   const [jsonInput, setJsonInput] = useState<string>('');
   const [jsonMessage, setJsonMessage] = useState<string | null>(null);
+
+  // CSV state
+  const [csvInput, setCsvInput] = useState<string>('');
+  const [csvMessage, setCsvMessage] = useState<string | null>(null);
+  const [isImportingCsv, setIsImportingCsv] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -153,6 +158,25 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     }
   };
 
+  const handleImportCsv = async () => {
+    if (!csvInput.trim()) {
+      alert('Please paste CSV contents to import');
+      return;
+    }
+    setIsImportingCsv(true);
+    setCsvMessage(null);
+    try {
+      const res = await vaultDesktop.importCsv(csvInput.trim());
+      setCsvMessage(`Successfully imported ${res.importedCount} credentials into your vault!${res.errors.length ? ` (${res.errors.length} skipped)` : ''}`);
+      setCsvInput('');
+      onRefreshVault();
+    } catch (e: any) {
+      alert(e?.message || 'Failed to import CSV');
+    } finally {
+      setIsImportingCsv(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -243,6 +267,21 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
             }}
           >
             JSON Tools
+          </button>
+          <button
+            onClick={() => setActiveTab('CSV')}
+            style={{
+              flex: 1,
+              padding: '12px',
+              border: 'none',
+              background: 'transparent',
+              color: activeTab === 'CSV' ? colors.primary : colors.textSecondary,
+              fontWeight: activeTab === 'CSV' ? 600 : 400,
+              borderBottom: `2px solid ${activeTab === 'CSV' ? colors.primary : 'transparent'}`,
+              cursor: 'pointer',
+            }}
+          >
+            CSV Importer
           </button>
         </div>
 
@@ -476,7 +515,7 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
                 </div>
               )}
             </div>
-          ) : (
+          ) : activeTab === 'JSON' ? (
             <div>
               <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '16px', lineHeight: '20px' }}>
                 Export your unencrypted credentials as standard JSON or import from Bitwarden / 1Password / VaultKey exports.
@@ -539,6 +578,57 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
               {jsonMessage && (
                 <div style={{ marginTop: '12px', color: colors.primary, fontSize: '13px', fontWeight: 600 }}>
                   {jsonMessage}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <p style={{ fontSize: '13px', color: colors.textSecondary, marginBottom: '16px', lineHeight: '20px' }}>
+                Universal 3rd-Party CSV Importer with RFC 4180 parsing. Automatically detects and imports exports from <strong>Bitwarden</strong>, <strong>Google Chrome</strong>, <strong>1Password</strong>, <strong>LastPass</strong>, and generic CSV vaults.
+              </p>
+
+              <label style={{ display: 'block', fontSize: '13px', marginBottom: '8px', fontWeight: 600 }}>
+                Paste CSV Export Data
+              </label>
+              <textarea
+                rows={8}
+                value={csvInput}
+                onChange={(e) => setCsvInput(e.target.value)}
+                placeholder="folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp&#10;or&#10;name,url,username,password"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: `1px solid ${colors.border}`,
+                  backgroundColor: colors.background,
+                  color: colors.text,
+                  fontFamily: 'monospace',
+                  fontSize: '12px',
+                  marginBottom: '12px',
+                  outline: 'none',
+                }}
+              />
+
+              <button
+                onClick={handleImportCsv}
+                disabled={isImportingCsv}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: colors.primary,
+                  color: '#FFFFFF',
+                  fontWeight: 600,
+                  cursor: isImportingCsv ? 'not-allowed' : 'pointer',
+                  opacity: isImportingCsv ? 0.7 : 1,
+                }}
+              >
+                {isImportingCsv ? 'Importing CSV...' : 'Import CSV Credentials'}
+              </button>
+
+              {csvMessage && (
+                <div style={{ marginTop: '12px', color: colors.primary, fontSize: '13px', fontWeight: 600 }}>
+                  {csvMessage}
                 </div>
               )}
             </div>

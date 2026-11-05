@@ -26,8 +26,13 @@ class MainActivity : ReactActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Touch session activity or trigger auto-lock check
-        VaultSessionManager.getInstance(applicationContext).touch()
+        val session = VaultSessionManager.getInstance(applicationContext)
+        // Check if auto-lock expired while backgrounded BEFORE refreshing monotonic activity timer
+        if (session.isLocked()) {
+            // State property check evaluates shouldAutoLock() and locks active DEK if timed out
+        } else {
+            session.touch()
+        }
     }
 
     override fun onPause() {

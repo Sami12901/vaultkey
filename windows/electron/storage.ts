@@ -2,9 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
+import { safeStorage } from 'electron';
 import { VaultCrypto, EncryptedData } from './crypto';
 import { DesktopBackupManager } from './backup';
 import { TotpEngine } from './totpEngine';
+import { detectAndParseCsv } from './csvImporter';
 
 export interface VaultConfig {
   salt: string; // base64
@@ -187,7 +189,9 @@ export class VaultStorage {
     if (!this.activeDek || !this.memoryVault) return;
     const jsonStr = JSON.stringify(this.memoryVault);
     const encData = VaultCrypto.encrypt(jsonStr, this.activeDek);
-    fs.writeFileSync(this.vaultFile, JSON.stringify(encData, null, 2), 'utf8');
+    const tempFile = `${this.vaultFile}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(encData, null, 2), 'utf8');
+    fs.renameSync(tempFile, this.vaultFile);
   }
 
   private logAuditEvent(eventType: string, details: string, isSuccess: boolean = true): void {
@@ -213,8 +217,9 @@ export class VaultStorage {
     if (!this.memoryVault) return [];
     let list = [...this.memoryVault.items];
 
-    if (options.type && options.type !== 'ALL') {
-      list = list.filter(i => i.type === options.type.toUpperCase());
+    const filterType = options.type || options.category;
+    if (filterType && filterType !== 'ALL') {
+      list = list.filter(i => i.type === filterType.toUpperCase());
     }
     if (options.folderId) {
       list = list.filter(i => i.folderId === options.folderId);
@@ -256,6 +261,8 @@ export class VaultStorage {
       maskedAccountNumber: i.bankData?.maskedAccountNumber,
       username: i.loginData?.username,
       website: i.loginData?.website,
+      issuer: i.authenticatorData?.issuer,
+      accountName: i.authenticatorData?.accountName,
     }));
   }
 
@@ -271,6 +278,9 @@ export class VaultStorage {
       case 'pin': return item.cardData?.pin || '';
       case 'accountNumber': return item.bankData?.accountNumber || '';
       case 'notes': return item.noteData?.content || '';
+      case 'secret': return item.authenticatorData?.secret || '';
+      case 'issuer': return item.authenticatorData?.issuer || '';
+      case 'accountName': return item.authenticatorData?.accountName || '';
       default: return '';
     }
   }
@@ -574,15 +584,28 @@ export class VaultStorage {
   getSecurityAnalysis(): any {
     if (!this.memoryVault) return null;
     const logins = this.memoryVault.items.filter(i => i.type === 'LOGIN');
+    const authenticators = this.memoryVault.items.filter(i => i.type === 'AUTHENTICATOR_2FA' || i.totpData);
     let weakCount = 0;
     let oldCount = 0;
+    let insecureHttpCount = 0;
+    let missing2faCount = 0;
     const hashes = new Map<string, string[]>();
     const weakItemIds: string[] = [];
     const reusedItemIds: string[] = [];
     const oldItemIds: string[] = [];
+    const insecureHttpItemIds: string[] = [];
+    const missing2faItemIds: string[] = [];
 
     const now = Date.now();
     const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+
+    const highRiskDomains = [
+      'google.com', 'gmail.com', 'github.com', 'aws.amazon.com', 'amazon.com',
+      'microsoft.com', 'live.com', 'outlook.com', 'twitter.com', 'x.com',
+      'discord.com', 'apple.com', 'icloud.com', 'binance.com', 'coinbase.com',
+      'paypal.com', 'facebook.com', 'instagram.com', 'linkedin.com', 'reddit.com',
+      'dropbox.com', 'gitlab.com', 'proton.me', 'protonmail.com',
+    ];
 
     for (const item of logins) {
       const pass = item.loginData?.password || '';
@@ -594,10 +617,58 @@ export class VaultStorage {
         oldCount++;
         oldItemIds.push(item.id);
       }
-      const hash = crypto.createHash('sha256').update(pass).digest('hex');
-      const list = hashes.get(hash) || [];
-      list.push(item.id);
-      hashes.set(hash, list);
+      if (pass) {
+        const hash = crypto.createHash('sha256').update(pass).digest('hex');
+        const list = hashes.get(hash) || [];
+        list.push(item.id);
+        hashes.set(hash, list);
+      }
+
+      // Insecure HTTP check
+      const urls: string[] = [];
+      if (item.website) urls.push(item.website);
+      if (item.loginData?.urlsJson) {
+        try {
+          const parsed = JSON.parse(item.loginData.urlsJson);
+          if (Array.isArray(parsed)) urls.push(...parsed);
+          else urls.push(item.loginData.urlsJson);
+        } catch {
+          urls.push(item.loginData.urlsJson);
+        }
+      }
+      const hasInsecure = urls.some(u => {
+        const lower = (u || '').trim().toLowerCase();
+        return lower.startsWith('http://') && !lower.startsWith('http://localhost') && !lower.startsWith('http://127.0.0.1');
+      });
+      if (hasInsecure) {
+        insecureHttpCount++;
+        insecureHttpItemIds.push(item.id);
+      }
+
+      // Missing 2FA check against high-risk domain catalog
+      const combined = `${item.title || ''} ${urls.join(' ')}`.toLowerCase();
+      let isRiskDomain = false;
+      let matchedBrand = '';
+      for (const d of highRiskDomains) {
+        const brand = d.split('.')[0];
+        if (combined.includes(d) || combined.includes(brand)) {
+          isRiskDomain = true;
+          matchedBrand = brand;
+          break;
+        }
+      }
+
+      if (isRiskDomain) {
+        const has2fa = authenticators.some(auth => {
+          const aIssuer = (auth.totpData?.issuer || auth.title || '').toLowerCase();
+          const aAccount = (auth.totpData?.accountName || '').toLowerCase();
+          return aIssuer.includes(matchedBrand) || aAccount.includes(matchedBrand);
+        });
+        if (!has2fa) {
+          missing2faCount++;
+          missing2faItemIds.push(item.id);
+        }
+      }
     }
 
     let reusedCount = 0;
@@ -609,7 +680,15 @@ export class VaultStorage {
     }
 
     const total = logins.length;
-    const score = total === 0 ? 100 : Math.max(0, Math.round(100 - (weakCount * 15 + reusedCount * 10 + oldCount * 5) / total));
+    let score = 100;
+    if (total > 0) {
+      const weakPenalty = (weakCount / total) * 35;
+      const reusedPenalty = (reusedCount / total) * 25;
+      const oldPenalty = (oldCount / total) * 15;
+      const httpPenalty = (insecureHttpCount / total) * 15;
+      const twoFaPenalty = (missing2faCount / total) * 10;
+      score = Math.max(0, Math.round(100 - weakPenalty - reusedPenalty - oldPenalty - httpPenalty - twoFaPenalty));
+    }
 
     return {
       score,
@@ -620,6 +699,10 @@ export class VaultStorage {
       weakItemIds,
       reusedItemIds,
       oldItemIds,
+      insecureHttpCount,
+      insecureHttpItemIds,
+      missing2faCount,
+      missing2faItemIds,
     };
   }
 
@@ -727,7 +810,8 @@ export class VaultStorage {
     let count = 0;
 
     for (const item of items) {
-      if (item.login || item.loginData) {
+      const type = (item.type || '').toUpperCase();
+      if (item.login || item.loginData || type === 'LOGIN') {
         const title = item.title || item.name || 'Imported Login';
         const loginObj = item.login || item.loginData || {};
         this.saveLoginItem({
@@ -735,6 +819,75 @@ export class VaultStorage {
           username: loginObj.username || item.username || '',
           password: loginObj.password || item.password || '',
           notes: item.notes || loginObj.notes || '',
+          urls: loginObj.urlsJson || loginObj.urls || item.urls || '[]',
+          folderId: item.folderId,
+          isFavorite: item.isFavorite,
+          tags: item.tags,
+        });
+        count++;
+      } else if (item.note || item.notes || item.noteData || type === 'SECURE_NOTE') {
+        const title = item.title || 'Imported Note';
+        const noteObj = item.note || item.noteData || {};
+        const content = typeof item.notes === 'string' ? item.notes : (noteObj.content || item.note || item.content || '');
+        this.saveSecureNote({
+          title,
+          content,
+          isRichText: !!noteObj.isRichText,
+          folderId: item.folderId,
+          isFavorite: item.isFavorite,
+          tags: item.tags,
+        });
+        count++;
+      } else if (item.card || item.cardData || type === 'CREDENTIAL_CARD') {
+        const title = item.title || 'Imported Card';
+        const cardObj = item.card || item.cardData || {};
+        this.saveCreditCard({
+          title,
+          cardholderName: cardObj.cardholderName || item.cardholderName || '',
+          cardNumber: cardObj.cardNumber || item.cardNumber || '',
+          expiryMonth: cardObj.expiryMonth || item.expiryMonth || '',
+          expiryYear: cardObj.expiryYear || item.expiryYear || '',
+          cvv: cardObj.cvv || item.cvv || '',
+          cardBrand: cardObj.cardBrand || item.cardBrand || 'Card',
+          pin: cardObj.pin || item.pin || '',
+          cardType: cardObj.cardType || item.cardType || 'Credit',
+          billingZip: cardObj.billingZip || item.billingZip || '',
+          folderId: item.folderId,
+          isFavorite: item.isFavorite,
+          tags: item.tags,
+        });
+        count++;
+      } else if (item.bankAccount || item.bankData || type === 'BANK_ACCOUNT') {
+        const title = item.title || 'Imported Bank Account';
+        const bankObj = item.bankAccount || item.bankData || {};
+        this.saveBankAccount({
+          title,
+          bankName: bankObj.bankName || item.bankName || '',
+          accountHolder: bankObj.accountHolder || item.accountHolder || '',
+          accountNumber: bankObj.accountNumber || item.accountNumber || '',
+          routingNumber: bankObj.routingNumber || item.routingNumber || '',
+          swiftBic: bankObj.swiftBic || item.swiftBic || '',
+          iban: bankObj.iban || item.iban || '',
+          accountType: bankObj.accountType || item.accountType || 'Checking',
+          folderId: item.folderId,
+          isFavorite: item.isFavorite,
+          tags: item.tags,
+        });
+        count++;
+      } else if (item.authenticator || item.authenticatorData || type === 'AUTHENTICATOR_2FA') {
+        const title = item.title || item.issuer || 'Imported 2FA';
+        const authObj = item.authenticator || item.authenticatorData || {};
+        this.saveAuthenticatorItem({
+          title,
+          issuer: authObj.issuer || item.issuer || '',
+          accountName: authObj.accountName || item.accountName || '',
+          secret: authObj.secret || item.secret || '',
+          algorithm: authObj.algorithm || item.algorithm || 'SHA1',
+          digits: authObj.digits || item.digits || 6,
+          period: authObj.period || item.period || 30,
+          folderId: item.folderId,
+          isFavorite: item.isFavorite,
+          tags: item.tags,
         });
         count++;
       }
@@ -745,11 +898,66 @@ export class VaultStorage {
     return { importedCount: count };
   }
 
+  importCsv(csvStr: string): { importedCount: number; errors: string[] } {
+    if (!this.memoryVault) throw new Error('Vault is locked');
+    const res = detectAndParseCsv(csvStr);
+    let count = 0;
+
+    for (const item of res.items) {
+      let folderId: string | undefined;
+      if (item.folder) {
+        const existing = this.memoryVault.folders.find(f => f.name.toLowerCase() === item.folder!.toLowerCase());
+        if (existing) {
+          folderId = existing.id;
+        } else {
+          const newFolder = this.createFolder(item.folder);
+          folderId = newFolder.id;
+        }
+      }
+
+      const urlsJson = item.url ? JSON.stringify([item.url]) : '[]';
+      this.saveLoginItem({
+        title: item.title,
+        username: item.username,
+        password: item.password,
+        notes: item.notes,
+        urls: urlsJson,
+        folderId,
+        isFavorite: item.isFavorite,
+      });
+      count++;
+
+      if (item.totpSecret) {
+        this.saveAuthenticatorItem({
+          title: `${item.title} 2FA`,
+          issuer: item.title,
+          accountName: item.username,
+          secret: item.totpSecret,
+          folderId,
+        });
+      }
+    }
+
+    this.logAuditEvent('CSV_IMPORTED', `Imported ${count} items from ${res.format} CSV`, true);
+    this.persistVault();
+    return { importedCount: count, errors: res.errors };
+  }
+
   getBridgeToken(): string {
     const bridgeFile = path.join(this.baseDir, 'bridge_auth.json');
     if (fs.existsSync(bridgeFile)) {
       try {
-        const data = JSON.parse(fs.readFileSync(bridgeFile, 'utf8'));
+        const raw = fs.readFileSync(bridgeFile, 'utf8');
+        const data = JSON.parse(raw);
+        if (data.isEncrypted && data.encryptedToken) {
+          if (safeStorage && safeStorage.isEncryptionAvailable()) {
+            const buf = Buffer.from(data.encryptedToken, 'base64');
+            const decrypted = safeStorage.decryptString(buf);
+            if (decrypted && decrypted.length >= 32) {
+              return decrypted;
+            }
+          }
+        }
         if (data && typeof data.token === 'string' && data.token.length >= 32) {
           return data.token;
         }
@@ -764,10 +972,20 @@ export class VaultStorage {
     const bridgeFile = path.join(this.baseDir, 'bridge_auth.json');
     const token = crypto.randomBytes(32).toString('hex');
     try {
-      fs.writeFileSync(bridgeFile, JSON.stringify({ token, createdAt: Date.now() }, null, 2), {
-        encoding: 'utf8',
-        mode: 0o600,
-      });
+      if (safeStorage && safeStorage.isEncryptionAvailable()) {
+        const encrypted = safeStorage.encryptString(token).toString('base64');
+        fs.writeFileSync(
+          bridgeFile,
+          JSON.stringify({ encryptedToken: encrypted, isEncrypted: true, createdAt: Date.now() }, null, 2),
+          { encoding: 'utf8', mode: 0o600 }
+        );
+      } else {
+        fs.writeFileSync(
+          bridgeFile,
+          JSON.stringify({ token, isEncrypted: false, createdAt: Date.now() }, null, 2),
+          { encoding: 'utf8', mode: 0o600 }
+        );
+      }
     } catch (err) {
       console.error('Failed to save bridge_auth.json:', err);
     }

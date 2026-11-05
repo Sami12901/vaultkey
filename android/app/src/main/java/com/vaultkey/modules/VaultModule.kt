@@ -333,6 +333,25 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                         else -> promise.reject("ERR_FIELD", "Unknown field: $fieldName")
                     }
                 }
+                ItemType.AUTHENTICATOR_2FA -> {
+                    val auth = dao.getAuthenticatorRecord(itemId) ?: run {
+                        promise.reject("ERR_NOT_FOUND", "Authenticator record not found")
+                        return
+                    }
+                    when (fieldName) {
+                        "secret" -> {
+                            val secret = AesGcmCipher.decryptToString(auth.encryptedSecret, auth.secretIv, dek)
+                            dao.updateLastUsed(itemId)
+                            promise.resolve(secret)
+                        }
+                        "issuer" -> promise.resolve(auth.issuer)
+                        "accountName" -> promise.resolve(auth.accountName)
+                        "algorithm" -> promise.resolve(auth.algorithm)
+                        "digits" -> promise.resolve(auth.digits.toString())
+                        "period" -> promise.resolve(auth.period.toString())
+                        else -> promise.reject("ERR_FIELD", "Unknown field: $fieldName")
+                    }
+                }
                 else -> promise.reject("ERR_UNSUPPORTED", "Secret access not configured for ${item.type}")
             }
         } catch (e: Exception) {
@@ -353,6 +372,7 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             }
             val dek = sessionManager.getActiveDek()
 
+            val existingId = if (itemData.hasKey("id") && !itemData.isNull("id")) itemData.getString("id") else null
             val title = itemData.getString("title") ?: "Untitled"
             val username = itemData.getString("username") ?: ""
             val password = itemData.getString("password") ?: ""
@@ -373,19 +393,37 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
 
             val encPass = AesGcmCipher.encryptString(password, dek)
 
-            val id = dao.insertLoginItem(
-                title = title,
-                username = username,
-                encryptedPassword = encPass.ciphertext,
-                passwordIv = encPass.iv,
-                urlsJson = urls,
-                notes = notes,
-                folderId = folderId,
-                isFavorite = isFavorite,
-                tags = tagsList
-            )
+            val id = if (!existingId.isNullOrBlank()) {
+                dao.updateLoginItem(
+                    itemId = existingId,
+                    title = title,
+                    username = username,
+                    encryptedPassword = encPass.ciphertext,
+                    passwordIv = encPass.iv,
+                    urlsJson = urls,
+                    notes = notes,
+                    folderId = folderId,
+                    isFavorite = isFavorite,
+                    tags = tagsList
+                )
+                dao.logAuditEvent("ITEM_UPDATED", "Login credential updated: $title", true)
+                existingId
+            } else {
+                val newId = dao.insertLoginItem(
+                    title = title,
+                    username = username,
+                    encryptedPassword = encPass.ciphertext,
+                    passwordIv = encPass.iv,
+                    urlsJson = urls,
+                    notes = notes,
+                    folderId = folderId,
+                    isFavorite = isFavorite,
+                    tags = tagsList
+                )
+                dao.logAuditEvent("ITEM_CREATED", "Login credential created: $title", true)
+                newId
+            }
 
-            dao.logAuditEvent("ITEM_CREATED", "Login credential created: $title", true)
             promise.resolve(id)
         } catch (e: Exception) {
             promise.reject("ERR_SAVE", e.message, e)
@@ -401,6 +439,7 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             }
             val dek = sessionManager.getActiveDek()
 
+            val existingId = if (noteData.hasKey("id") && !noteData.isNull("id")) noteData.getString("id") else null
             val title = noteData.getString("title") ?: "Untitled Note"
             val content = noteData.getString("content") ?: ""
             val folderId = if (noteData.hasKey("folderId") && !noteData.isNull("folderId")) noteData.getString("folderId") else null
@@ -419,17 +458,33 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
 
             val encContent = AesGcmCipher.encryptString(content, dek)
 
-            val id = dao.insertSecureNote(
-                title = title,
-                encryptedContent = encContent.ciphertext,
-                contentIv = encContent.iv,
-                folderId = folderId,
-                isFavorite = isFavorite,
-                tags = tagsList,
-                isRichText = isRich
-            )
+            val id = if (!existingId.isNullOrBlank()) {
+                dao.updateSecureNote(
+                    itemId = existingId,
+                    title = title,
+                    encryptedContent = encContent.ciphertext,
+                    contentIv = encContent.iv,
+                    folderId = folderId,
+                    isFavorite = isFavorite,
+                    tags = tagsList,
+                    isRichText = isRich
+                )
+                dao.logAuditEvent("ITEM_UPDATED", "Secure note updated: $title", true)
+                existingId
+            } else {
+                val newId = dao.insertSecureNote(
+                    title = title,
+                    encryptedContent = encContent.ciphertext,
+                    contentIv = encContent.iv,
+                    folderId = folderId,
+                    isFavorite = isFavorite,
+                    tags = tagsList,
+                    isRichText = isRich
+                )
+                dao.logAuditEvent("ITEM_CREATED", "Secure note created: $title", true)
+                newId
+            }
 
-            dao.logAuditEvent("NOTE_CREATED", "Secure note created: $title", true)
             promise.resolve(id)
         } catch (e: Exception) {
             promise.reject("ERR_SAVE", e.message, e)
@@ -445,6 +500,7 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             }
             val dek = sessionManager.getActiveDek()
 
+            val existingId = if (cardData.hasKey("id") && !cardData.isNull("id")) cardData.getString("id") else null
             val title = cardData.getString("title") ?: "Card"
             val holder = cardData.getString("cardholderName") ?: ""
             val number = cardData.getString("cardNumber") ?: ""
@@ -478,27 +534,53 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 }
             }
 
-            val id = dao.insertCreditCard(
-                title = title,
-                cardholderName = holder,
-                maskedNumber = masked,
-                encryptedCardNumber = encNum.ciphertext,
-                cardIv = encNum.iv,
-                expiryMonth = month,
-                expiryYear = year,
-                encryptedCvv = encCvv.ciphertext,
-                cvvIv = encCvv.iv,
-                cardBrand = brand,
-                encryptedPin = encPin?.ciphertext,
-                pinIv = encPin?.iv,
-                cardType = cardType,
-                billingZip = billingZip,
-                folderId = folderId,
-                isFavorite = isFavorite,
-                tags = tags
-            )
+            val id = if (!existingId.isNullOrBlank()) {
+                dao.updateCreditCard(
+                    itemId = existingId,
+                    title = title,
+                    cardholderName = holder,
+                    maskedNumber = masked,
+                    encryptedCardNumber = encNum.ciphertext,
+                    cardIv = encNum.iv,
+                    expiryMonth = month,
+                    expiryYear = year,
+                    encryptedCvv = encCvv.ciphertext,
+                    cvvIv = encCvv.iv,
+                    cardBrand = brand,
+                    encryptedPin = encPin?.ciphertext,
+                    pinIv = encPin?.iv,
+                    cardType = cardType,
+                    billingZip = billingZip,
+                    folderId = folderId,
+                    isFavorite = isFavorite,
+                    tags = tags
+                )
+                dao.logAuditEvent("ITEM_UPDATED", "Credit card updated: $title", true)
+                existingId
+            } else {
+                val newId = dao.insertCreditCard(
+                    title = title,
+                    cardholderName = holder,
+                    maskedNumber = masked,
+                    encryptedCardNumber = encNum.ciphertext,
+                    cardIv = encNum.iv,
+                    expiryMonth = month,
+                    expiryYear = year,
+                    encryptedCvv = encCvv.ciphertext,
+                    cvvIv = encCvv.iv,
+                    cardBrand = brand,
+                    encryptedPin = encPin?.ciphertext,
+                    pinIv = encPin?.iv,
+                    cardType = cardType,
+                    billingZip = billingZip,
+                    folderId = folderId,
+                    isFavorite = isFavorite,
+                    tags = tags
+                )
+                dao.logAuditEvent("ITEM_CREATED", "Credit card created: $title", true)
+                newId
+            }
 
-            dao.logAuditEvent("CARD_CREATED", "Credit card created: $title", true)
             promise.resolve(id)
         } catch (e: Exception) {
             promise.reject("ERR_SAVE", e.message, e)
@@ -514,6 +596,7 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             }
             val dek = sessionManager.getActiveDek()
 
+            val existingId = if (bankData.hasKey("id") && !bankData.isNull("id")) bankData.getString("id") else null
             val title = bankData.getString("title") ?: "Bank Account"
             val bankName = bankData.getString("bankName") ?: ""
             val accountHolder = bankData.getString("accountHolder") ?: ""
@@ -543,23 +626,45 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 }
             }
 
-            val id = dao.insertBankAccount(
-                title = title,
-                bankName = bankName,
-                accountHolder = accountHolder,
-                maskedAccountNumber = masked,
-                encryptedAccountNumber = encAcc.ciphertext,
-                accountIv = encAcc.iv,
-                routingNumber = routingNumber,
-                swiftBic = swiftBic,
-                iban = iban,
-                accountType = accountType,
-                folderId = folderId,
-                isFavorite = isFavorite,
-                tags = tags
-            )
+            val id = if (!existingId.isNullOrBlank()) {
+                dao.updateBankAccount(
+                    itemId = existingId,
+                    title = title,
+                    bankName = bankName,
+                    accountHolder = accountHolder,
+                    maskedAccountNumber = masked,
+                    encryptedAccountNumber = encAcc.ciphertext,
+                    accountIv = encAcc.iv,
+                    routingNumber = routingNumber,
+                    swiftBic = swiftBic,
+                    iban = iban,
+                    accountType = accountType,
+                    folderId = folderId,
+                    isFavorite = isFavorite,
+                    tags = tags
+                )
+                dao.logAuditEvent("ITEM_UPDATED", "Bank account updated: $title", true)
+                existingId
+            } else {
+                val newId = dao.insertBankAccount(
+                    title = title,
+                    bankName = bankName,
+                    accountHolder = accountHolder,
+                    maskedAccountNumber = masked,
+                    encryptedAccountNumber = encAcc.ciphertext,
+                    accountIv = encAcc.iv,
+                    routingNumber = routingNumber,
+                    swiftBic = swiftBic,
+                    iban = iban,
+                    accountType = accountType,
+                    folderId = folderId,
+                    isFavorite = isFavorite,
+                    tags = tags
+                )
+                dao.logAuditEvent("ITEM_CREATED", "Bank account created: $title", true)
+                newId
+            }
 
-            dao.logAuditEvent("BANK_ACCOUNT_CREATED", "Bank account created: $title", true)
             promise.resolve(id)
         } catch (e: Exception) {
             promise.reject("ERR_SAVE", e.message, e)
@@ -596,14 +701,15 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 }
             }
 
-            val decodedSecret = TotpEngine.decodeBase32(rawSecret)
-            if (decodedSecret.isEmpty()) {
+            val cleanSecret = rawSecret.trim().replace(" ", "").replace("-", "").uppercase()
+            val testDecoded = TotpEngine.decodeBase32(cleanSecret)
+            if (testDecoded.isEmpty()) {
                 promise.reject("ERR_INVALID_SECRET", "Invalid Base32 secret key")
                 return
             }
+            Arrays.fill(testDecoded, 0.toByte())
 
-            val encSecret = AesGcmCipher.encrypt(decodedSecret, dek)
-            Arrays.fill(decodedSecret, 0.toByte())
+            val encSecret = AesGcmCipher.encryptString(cleanSecret, dek)
 
             val itemId = dao.insertAuthenticatorItem(
                 title = title,
@@ -639,7 +745,8 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 return
             }
 
-            val secretBytes = AesGcmCipher.decrypt(auth.encryptedSecret, auth.secretIv, dek)
+            val secretStr = AesGcmCipher.decryptToString(auth.encryptedSecret, auth.secretIv, dek)
+            val secretBytes = TotpEngine.decodeBase32(secretStr)
             val res = TotpEngine.generateTotp(
                 secretBytes = secretBytes,
                 period = auth.period,
@@ -672,7 +779,8 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
 
             for (auth in records) {
                 try {
-                    val secretBytes = AesGcmCipher.decrypt(auth.encryptedSecret, auth.secretIv, dek)
+                    val secretStr = AesGcmCipher.decryptToString(auth.encryptedSecret, auth.secretIv, dek)
+                    val secretBytes = TotpEngine.decodeBase32(secretStr)
                     val res = TotpEngine.generateTotp(
                         secretBytes = secretBytes,
                         period = auth.period,
@@ -1019,7 +1127,7 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             val salt = ByteArray(16)
             java.security.SecureRandom().nextBytes(salt)
 
-            val spec = javax.crypto.spec.PBEKeySpec(passChars, salt, 10000, 256)
+            val spec = javax.crypto.spec.PBEKeySpec(passChars, salt, 600000, 256)
             val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
             val keyBytes = factory.generateSecret(spec).encoded
 
@@ -1054,7 +1162,7 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             val iv = android.util.Base64.decode(parts[2], android.util.Base64.NO_WRAP)
             val ciphertext = android.util.Base64.decode(parts[3], android.util.Base64.NO_WRAP)
 
-            val spec = javax.crypto.spec.PBEKeySpec(passChars, salt, 10000, 256)
+            val spec = javax.crypto.spec.PBEKeySpec(passChars, salt, 600000, 256)
             val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
             val keyBytes = factory.generateSecret(spec).encoded
 
@@ -1112,7 +1220,7 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             val salt = ByteArray(16)
             java.security.SecureRandom().nextBytes(salt)
 
-            val spec = javax.crypto.spec.PBEKeySpec(passChars, salt, 10000, 256)
+            val spec = javax.crypto.spec.PBEKeySpec(passChars, salt, 600000, 256)
             val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
             val keyBytes = factory.generateSecret(spec).encoded
 
@@ -1196,7 +1304,7 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             val salt = ByteArray(16)
             inStream.read(salt)
 
-            val spec = javax.crypto.spec.PBEKeySpec(passChars, salt, 10000, 256)
+            val spec = javax.crypto.spec.PBEKeySpec(passChars, salt, 600000, 256)
             val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
             val keyBytes = factory.generateSecret(spec).encoded
 
@@ -1227,12 +1335,16 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             val decryptedBytes = AesGcmCipher.decrypt(payloadCipher, payloadIv, keyBytes)
             MemorySecurity.wipe(keyBytes)
 
-            // Save decrypted file to private cache
+            // Save decrypted file to private cache with path traversal protection
             val decDir = java.io.File(context.cacheDir, "decrypted_media").apply { mkdirs() }
-            val outFile = java.io.File(decDir, origName)
+            val safeName = java.io.File(origName).name.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+            val outFile = java.io.File(decDir, safeName)
+            if (!outFile.canonicalPath.startsWith(decDir.canonicalPath)) {
+                throw SecurityException("Illegal file destination detected: $origName")
+            }
             java.io.FileOutputStream(outFile).use { it.write(decryptedBytes) }
 
-            dao.logAuditEvent("MEDIA_DECRYPTED", "Decrypted media file: $origName", true)
+            dao.logAuditEvent("MEDIA_DECRYPTED", "Decrypted media file: $safeName", true)
 
             val map = Arguments.createMap().apply {
                 putString("outputFilePath", outFile.absolutePath)
@@ -1517,15 +1629,19 @@ class VaultModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
 
             val decryptedBytes = AesGcmCipher.decrypt(ciphertext, iv, dek)
 
-            // Save into private cacheDir/decrypted_view/<filename>
+            // Save into private cacheDir/decrypted_view/<filename> with path traversal protection
             val viewDir = java.io.File(context.cacheDir, "decrypted_view").apply { mkdirs() }
-            val outFile = java.io.File(viewDir, record.fileName)
+            val safeName = java.io.File(record.fileName).name.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+            val outFile = java.io.File(viewDir, safeName)
+            if (!outFile.canonicalPath.startsWith(viewDir.canonicalPath)) {
+                throw SecurityException("Illegal file destination detected: ${record.fileName}")
+            }
             java.io.FileOutputStream(outFile).use { it.write(decryptedBytes) }
 
             val map = Arguments.createMap().apply {
                 putString("fileUri", "file://${outFile.absolutePath}")
                 putString("filePath", outFile.absolutePath)
-                putString("fileName", record.fileName)
+                putString("fileName", safeName)
                 putString("mimeType", record.mimeType)
                 putDouble("sizeBytes", record.sizeBytes.toDouble())
                 putString("mediaType", record.mediaType)

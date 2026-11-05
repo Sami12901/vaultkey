@@ -90,6 +90,20 @@ export const App: React.FC = () => {
     return () => unsub();
   }, []);
 
+  useEffect(() => {
+    const api = (window as any).vaultKeyApi;
+    if (api && api.onVaultLocked) {
+      const unsub = api.onVaultLocked(() => {
+        setVaultState('LOCKED');
+        setShowGenerator(false);
+        setShowSecurity(false);
+        setShowBackup(false);
+        setShowSettings(false);
+      });
+      return () => unsub();
+    }
+  }, []);
+
   if (vaultState === 'CHECKING') {
     return (
       <div

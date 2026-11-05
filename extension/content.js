@@ -20,6 +20,73 @@
   // 1. In-Field Icon & Autofill Dropdown
   // -------------------------------------------------------------
 
+  const activeFieldIcons = new Map(); // input Element -> iconBtn Element
+  let repositionRaf = null;
+
+  function scheduleReposition() {
+    if (repositionRaf) return;
+    const raf = window.requestAnimationFrame || ((cb) => setTimeout(cb, 16));
+    repositionRaf = raf(() => {
+      repositionRaf = null;
+      repositionAllIcons();
+    });
+  }
+
+  function cleanupIconForInput(input, iconBtn) {
+    if (iconBtn && iconBtn.parentNode) {
+      iconBtn.remove();
+    }
+    if (input) {
+      input.removeAttribute('data-vaultkey-injected');
+    }
+    activeFieldIcons.delete(input);
+  }
+
+  function cleanupOrphanedIcons() {
+    // Clean registered icons whose target input is no longer connected to the DOM
+    for (const [input, iconBtn] of activeFieldIcons.entries()) {
+      if (!input || !input.isConnected) {
+        cleanupIconForInput(input, iconBtn);
+      }
+    }
+
+    // Scan DOM for any detached or unassociated .vaultkey-field-icon elements
+    const domIcons = document.querySelectorAll('.vaultkey-field-icon');
+    domIcons.forEach((icon) => {
+      let isTrackedAndConnected = false;
+      for (const [input, iconBtn] of activeFieldIcons.entries()) {
+        if (iconBtn === icon && input && input.isConnected) {
+          isTrackedAndConnected = true;
+          break;
+        }
+      }
+      if (!isTrackedAndConnected) {
+        icon.remove();
+      }
+    });
+  }
+
+  function positionSingleIcon(input, iconBtn) {
+    if (!input || !input.isConnected) {
+      cleanupIconForInput(input, iconBtn);
+      return;
+    }
+    const rect = input.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0 || input.offsetParent === null) {
+      iconBtn.style.display = 'none';
+      return;
+    }
+    iconBtn.style.display = 'flex';
+    iconBtn.style.top = `${window.scrollY + rect.top + (rect.height - 22) / 2}px`;
+    iconBtn.style.left = `${window.scrollX + rect.right - 28}px`;
+  }
+
+  function repositionAllIcons() {
+    for (const [input, iconBtn] of activeFieldIcons.entries()) {
+      positionSingleIcon(input, iconBtn);
+    }
+  }
+
   function attachIconsToInputs() {
     const passwordInputs = document.querySelectorAll('input[type="password"]:not([data-vaultkey-injected])');
     passwordInputs.forEach((input) => {
@@ -37,6 +104,7 @@
   }
 
   function injectIcon(input, fieldType) {
+    if (activeFieldIcons.has(input)) return;
     input.setAttribute('data-vaultkey-injected', 'true');
 
     // Create wrapper icon
@@ -46,21 +114,9 @@
     iconBtn.innerHTML = SHIELD_SVG;
 
     document.body.appendChild(iconBtn);
+    activeFieldIcons.set(input, iconBtn);
 
-    function positionIcon() {
-      const rect = input.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0 || input.offsetParent === null) {
-        iconBtn.style.display = 'none';
-        return;
-      }
-      iconBtn.style.display = 'flex';
-      iconBtn.style.top = `${window.scrollY + rect.top + (rect.height - 22) / 2}px`;
-      iconBtn.style.left = `${window.scrollX + rect.right - 28}px`;
-    }
-
-    positionIcon();
-    window.addEventListener('resize', positionIcon);
-    window.addEventListener('scroll', positionIcon);
+    positionSingleIcon(input, iconBtn);
 
     iconBtn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -154,7 +210,13 @@
   }
 
   function setValueAndDispatch(input, value) {
-    input.value = value;
+    if (!input) return;
+    const prototypeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    if (prototypeSetter) {
+      prototypeSetter.call(input, value);
+    } else {
+      input.value = value;
+    }
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
@@ -193,6 +255,44 @@
   // 2. Sign-Up / Login Capture & Floating Auto-Save Banner
   // -------------------------------------------------------------
 
+  function isLikelyUsernameField(input) {
+    if (!input || input.tagName !== 'INPUT') return false;
+    const type = (input.type || 'text').toLowerCase();
+    if (['password', 'hidden', 'submit', 'button', 'checkbox', 'radio', 'file', 'image', 'reset'].includes(type)) {
+      return false;
+    }
+    const name = (input.name || '').toLowerCase();
+    const id = (input.id || '').toLowerCase();
+    const autocomplete = (input.autocomplete || '').toLowerCase();
+    const placeholder = (input.placeholder || '').toLowerCase();
+
+    // Explicit email or user identifier patterns
+    if (type === 'email') return true;
+    if (
+      name.includes('user') || name.includes('login') || name.includes('email') ||
+      id.includes('user') || id.includes('login') || id.includes('email') ||
+      autocomplete.includes('username') || autocomplete.includes('email') ||
+      placeholder.includes('username') || placeholder.includes('email') || placeholder.includes('login')
+    ) {
+      return true;
+    }
+
+    // Associated with a password field in the same form (do NOT capture general search/comment inputs)
+    const form = input.form || input.closest('form');
+    if (form && form.querySelector('input[type="password"]')) {
+      if (
+        type === 'search' ||
+        name.includes('search') || id.includes('search') || placeholder.includes('search') ||
+        name.includes('comment') || id.includes('comment') || name.includes('query') || id.includes('query')
+      ) {
+        return false;
+      }
+      return true;
+    }
+
+    return false;
+  }
+
   function monitorInputValues() {
     document.addEventListener('input', (e) => {
       const target = e.target;
@@ -208,7 +308,7 @@
         if (userField && userField.value) {
           latestCaptured.username = userField.value.trim();
         }
-      } else if (target.type !== 'password' && target.value) {
+      } else if (isLikelyUsernameField(target) && target.value) {
         latestCaptured.username = target.value.trim();
       }
     }, true);
@@ -246,7 +346,11 @@
     if (!container) container = document;
 
     const passInput = container.querySelector('input[type="password"]');
-    const userInput = container.querySelector('input[type="email"], input[name*="user" i], input[name*="login" i], input[name*="email" i], input[id*="user" i]');
+    let userInput = container.querySelector('input[type="email"], input[name*="user" i], input[name*="login" i], input[name*="email" i], input[id*="user" i]');
+    if (!userInput && container.querySelectorAll) {
+      const inputs = Array.from(container.querySelectorAll('input'));
+      userInput = inputs.find(isLikelyUsernameField);
+    }
 
     const password = passInput ? passInput.value : latestCaptured.password;
     const username = userInput && userInput.value ? userInput.value.trim() : latestCaptured.username;
@@ -357,9 +461,15 @@
   monitorInputValues();
   monitorFormSubmissions();
 
-  // Re-check for dynamically rendered inputs (e.g. single page applications)
+  // Centralized throttled resize & scroll listeners for in-field icons
+  window.addEventListener('scroll', scheduleReposition, { passive: true });
+  window.addEventListener('resize', scheduleReposition, { passive: true });
+
+  // Re-check for dynamically rendered inputs and clean up detached icons
   const observer = new MutationObserver(() => {
+    cleanupOrphanedIcons();
     attachIconsToInputs();
+    scheduleReposition();
   });
   observer.observe(document.body, { childList: true, subtree: true });
 })();

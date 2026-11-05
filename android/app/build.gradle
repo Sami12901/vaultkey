@@ -82,8 +82,8 @@ android {
         applicationId "com.vaultkey"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.2.0"
+        versionCode 4
+        versionName "1.3.0"
     }
     signingConfigs {
         debug {
@@ -127,6 +127,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Unit Testing
+    testImplementation("junit:junit:4.13.2")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

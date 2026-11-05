@@ -1,6 +1,7 @@
 package com.vaultkey.database
 
 import android.content.ContentValues
+import com.vaultkey.autofill.DomainMatcher
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 import org.json.JSONArray
 import java.util.UUID
@@ -427,6 +428,42 @@ class VaultDao(private val dbHelper: VaultDatabaseHelper) {
         }
     }
 
+    fun updateSecureNote(
+        itemId: String,
+        title: String,
+        encryptedContent: ByteArray,
+        contentIv: ByteArray,
+        folderId: String? = null,
+        isFavorite: Boolean = false,
+        tags: List<String> = emptyList(),
+        isRichText: Boolean = false
+    ) {
+        val now = System.currentTimeMillis()
+        db.beginTransaction()
+        try {
+            val itemCv = ContentValues().apply {
+                put("title", title)
+                put("folder_id", folderId)
+                put("is_favorite", if (isFavorite) 1 else 0)
+                put("updated_at", now)
+            }
+            db.update("vault_items", itemCv, "id = ?", arrayOf(itemId))
+
+            val noteCv = ContentValues().apply {
+                put("encrypted_content", encryptedContent)
+                put("content_iv", contentIv)
+                put("is_rich_text", if (isRichText) 1 else 0)
+            }
+            db.update("secure_notes", noteCv, "vault_item_id = ?", arrayOf(itemId))
+
+            setItemTags(itemId, tags)
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     // ---------------------------------------------------------
     // Credit Card CRUD
     // ---------------------------------------------------------
@@ -529,6 +566,62 @@ class VaultDao(private val dbHelper: VaultDatabaseHelper) {
         }
     }
 
+    fun updateCreditCard(
+        itemId: String,
+        title: String,
+        cardholderName: String,
+        maskedNumber: String,
+        encryptedCardNumber: ByteArray,
+        cardIv: ByteArray,
+        expiryMonth: String,
+        expiryYear: String,
+        encryptedCvv: ByteArray,
+        cvvIv: ByteArray,
+        cardBrand: String,
+        encryptedPin: ByteArray? = null,
+        pinIv: ByteArray? = null,
+        cardType: String = "Credit",
+        billingZip: String = "",
+        folderId: String? = null,
+        isFavorite: Boolean = false,
+        tags: List<String> = emptyList()
+    ) {
+        val now = System.currentTimeMillis()
+        db.beginTransaction()
+        try {
+            val itemCv = ContentValues().apply {
+                put("title", title)
+                put("folder_id", folderId)
+                put("is_favorite", if (isFavorite) 1 else 0)
+                put("updated_at", now)
+            }
+            db.update("vault_items", itemCv, "id = ?", arrayOf(itemId))
+
+            val cardCv = ContentValues().apply {
+                put("cardholder_name", cardholderName)
+                put("masked_number", maskedNumber)
+                put("encrypted_card_number", encryptedCardNumber)
+                put("card_iv", cardIv)
+                put("expiry_month", expiryMonth)
+                put("expiry_year", expiryYear)
+                put("encrypted_cvv", encryptedCvv)
+                put("cvv_iv", cvvIv)
+                put("card_brand", cardBrand)
+                put("encrypted_pin", encryptedPin)
+                put("pin_iv", pinIv)
+                put("card_type", cardType)
+                put("billing_zip", billingZip)
+            }
+            db.update("credit_cards", cardCv, "vault_item_id = ?", arrayOf(itemId))
+
+            setItemTags(itemId, tags)
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     // ---------------------------------------------------------
     // Bank Account CRUD
     // ---------------------------------------------------------
@@ -613,6 +706,54 @@ class VaultDao(private val dbHelper: VaultDatabaseHelper) {
         } else {
             cursor.close()
             null
+        }
+    }
+
+    fun updateBankAccount(
+        itemId: String,
+        title: String,
+        bankName: String,
+        accountHolder: String,
+        maskedAccountNumber: String,
+        encryptedAccountNumber: ByteArray,
+        accountIv: ByteArray,
+        routingNumber: String = "",
+        swiftBic: String = "",
+        iban: String = "",
+        accountType: String = "Checking",
+        folderId: String? = null,
+        isFavorite: Boolean = false,
+        tags: List<String> = emptyList()
+    ) {
+        val now = System.currentTimeMillis()
+        db.beginTransaction()
+        try {
+            val itemCv = ContentValues().apply {
+                put("title", title)
+                put("folder_id", folderId)
+                put("is_favorite", if (isFavorite) 1 else 0)
+                put("updated_at", now)
+            }
+            db.update("vault_items", itemCv, "id = ?", arrayOf(itemId))
+
+            val bankCv = ContentValues().apply {
+                put("bank_name", bankName)
+                put("account_holder", accountHolder)
+                put("masked_account_number", maskedAccountNumber)
+                put("encrypted_account_number", encryptedAccountNumber)
+                put("account_iv", accountIv)
+                put("routing_number", routingNumber)
+                put("swift_bic", swiftBic)
+                put("iban", iban)
+                put("account_type", accountType)
+            }
+            db.update("bank_accounts", bankCv, "vault_item_id = ?", arrayOf(itemId))
+
+            setItemTags(itemId, tags)
+
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
     }
 
@@ -878,15 +1019,15 @@ class VaultDao(private val dbHelper: VaultDatabaseHelper) {
 
     fun findLoginsByDomain(domain: String): List<Pair<VaultItem, LoginCredential>> {
         val all = getAllLoginCredentialsForSecurityAnalysis()
-        val normalizedTarget = domain.lowercase().trim()
+        val normalizedTarget = DomainMatcher.normalizeDomain(domain)
 
         return all.filter { (_, cred) ->
             try {
                 val urls = JSONArray(cred.urlsJson)
                 var matched = false
                 for (i in 0 until urls.length()) {
-                    val urlStr = urls.getString(i).lowercase().trim()
-                    if (urlStr.contains(normalizedTarget) || normalizedTarget.contains(urlStr)) {
+                    val raw = urls.optJSONObject(i)?.optString("uri") ?: urls.getString(i)
+                    if (DomainMatcher.isDomainMatch(normalizedTarget, raw)) {
                         matched = true
                         break
                     }

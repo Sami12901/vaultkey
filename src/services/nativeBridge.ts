@@ -120,6 +120,7 @@ export const vaultNative = {
 
   // Save items
   saveLoginItem: async (data: {
+    id?: string;
     title: string;
     username: string;
     password: string;
@@ -133,6 +134,7 @@ export const vaultNative = {
   },
 
   saveSecureNote: async (data: {
+    id?: string;
     title: string;
     content: string;
     folderId?: string | null;

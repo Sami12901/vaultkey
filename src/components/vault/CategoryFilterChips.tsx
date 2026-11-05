@@ -1,6 +1,5 @@
 import React from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { colors } from '../../theme/colors';
+import { ScrollView, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { radius, typography, spacing, useTheme } from '../../theme';
 import { useTranslation } from '../../i18n';
 
@@ -9,6 +8,7 @@ interface CategoryFilterChipsProps {
   onSelectType: (type: string) => void;
   favoritesOnly: boolean;
   onToggleFavoritesOnly: () => void;
+  counts?: Record<string, number>;
 }
 
 export const CategoryFilterChips: React.FC<CategoryFilterChipsProps> = ({
@@ -16,6 +16,7 @@ export const CategoryFilterChips: React.FC<CategoryFilterChipsProps> = ({
   onSelectType,
   favoritesOnly,
   onToggleFavoritesOnly,
+  counts = {},
 }) => {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -26,6 +27,7 @@ export const CategoryFilterChips: React.FC<CategoryFilterChipsProps> = ({
     { key: 'SECURE_NOTE', label: t('allNotes') },
     { key: 'CREDENTIAL_CARD', label: t('allCards') },
     { key: 'BANK_ACCOUNT', label: t('allBankAccounts') },
+    { key: 'AUTHENTICATOR_2FA', label: '2FA' },
     { key: 'SECURE_MEDIA', label: t('allMedia') },
   ];
 
@@ -37,6 +39,7 @@ export const CategoryFilterChips: React.FC<CategoryFilterChipsProps> = ({
     >
       {categories.map(cat => {
         const isSelected = selectedType === cat.key && !favoritesOnly;
+        const count = counts[cat.key];
         return (
           <TouchableOpacity
             key={cat.key}
@@ -63,6 +66,27 @@ export const CategoryFilterChips: React.FC<CategoryFilterChipsProps> = ({
             >
               {cat.label}
             </Text>
+            {count !== undefined && count !== null ? (
+              <View
+                style={[
+                  styles.countBadge,
+                  {
+                    backgroundColor: isSelected ? colors.primary : colors.cardSecondary,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.countText,
+                    {
+                      color: isSelected ? colors.white : colors.textMuted,
+                    },
+                  ]}
+                >
+                  {count}
+                </Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
         );
       })}
@@ -86,41 +110,67 @@ export const CategoryFilterChips: React.FC<CategoryFilterChipsProps> = ({
             favoritesOnly && styles.chipTextSelected,
           ]}
         >
-          {t('favorites')}
+          ★ {t('favorites')}
         </Text>
+        {counts.FAVORITES !== undefined ? (
+          <View
+            style={[
+              styles.countBadge,
+              {
+                backgroundColor: favoritesOnly ? colors.primary : colors.cardSecondary,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.countText,
+                {
+                  color: favoritesOnly ? colors.white : colors.textMuted,
+                },
+              ]}
+            >
+              {counts.FAVORITES}
+            </Text>
+          </View>
+        ) : null}
       </TouchableOpacity>
     </ScrollView>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.base,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+    alignItems: 'center',
   },
   chip: {
-    paddingHorizontal: spacing.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     height: 36,
     borderRadius: radius.full,
-    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipSelected: {
-    backgroundColor: colors.primaryMuted,
-    borderColor: colors.primary,
+    gap: 6,
   },
   chipText: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.medium,
-    color: colors.textSecondary,
   },
   chipTextSelected: {
-    color: colors.primaryLight,
-    fontWeight: typography.fontWeights.semibold,
+    fontWeight: typography.fontWeights.bold,
+  },
+  countBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  countText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeights.bold,
   },
 });

@@ -139,6 +139,10 @@ export const vaultDesktop = {
     return api ? api.importCredentialsJson(jsonStr) : { importedCount: 0 };
   },
 
+  importCsv: async (csvStr: string): Promise<{ importedCount: number; errors: string[] }> => {
+    return api ? api.importCsv(csvStr) : { importedCount: 0, errors: [] };
+  },
+
   copySecure: async (text: string, label?: string, timeoutSeconds?: number): Promise<{ message: string }> => {
     if (api && api.copySecure) {
       return api.copySecure(text, label, timeoutSeconds);

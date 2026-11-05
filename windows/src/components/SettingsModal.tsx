@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../theme';
 import { useTranslation, SUPPORTED_LANGUAGES } from '../i18n';
-import { SettingsIcon, LockIcon } from './Icons';
+import { SettingsIcon, LockIcon, ShieldIcon } from './Icons';
 import { vaultDesktop } from '../services/vaultService';
+import { generateEmergencyKitContent } from '../utils/recoveryKit';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -39,6 +40,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [bridgeToken, setBridgeToken] = useState<string>('');
   const [showBridgeToken, setShowBridgeToken] = useState<boolean>(false);
   const [tokenCopied, setTokenCopied] = useState<boolean>(false);
+
+  const [showEmergencyKit, setShowEmergencyKit] = useState<boolean>(false);
+  const [kitCopied, setKitCopied] = useState<boolean>(false);
+  const [kitContent, setKitContent] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -638,6 +643,121 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {passMessage && (
               <div style={{ marginTop: '10px', color: colors.primary, fontSize: '12px', fontWeight: 600 }}>
                 {passMessage}
+              </div>
+            )}
+          </div>
+
+          {/* Emergency Access & Digital Recovery Kit */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '10px',
+              backgroundColor: colors.cardSecondary,
+              border: `1px solid ${colors.border}`,
+              marginBottom: '20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldIcon size={18} color={colors.primary} />
+                <h3 style={{ fontSize: '14px', fontWeight: 600 }}>Emergency Recovery Kit</h3>
+              </div>
+              <button
+                onClick={() => {
+                  if (!showEmergencyKit) {
+                    const text = generateEmergencyKitContent({
+                      vaultName: 'VaultKey Primary Vault',
+                      userEmail: 'owner@vaultkey.local',
+                    });
+                    setKitContent(text);
+                    setShowEmergencyKit(true);
+                  } else {
+                    setShowEmergencyKit(false);
+                  }
+                }}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: colors.primary,
+                  color: '#FFFFFF',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {showEmergencyKit ? 'Hide Kit' : 'View / Generate Kit'}
+              </button>
+            </div>
+            <p style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: '18px', marginBottom: showEmergencyKit ? '12px' : '0' }}>
+              Standardized printable recovery sheet with zero-knowledge attestations, recovery capsules, and emergency restoration instructions.
+            </p>
+
+            {showEmergencyKit && (
+              <div>
+                <pre
+                  style={{
+                    backgroundColor: colors.background,
+                    color: colors.text,
+                    padding: '12px',
+                    borderRadius: '6px',
+                    border: `1px solid ${colors.border}`,
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    marginBottom: '10px',
+                  }}
+                >
+                  {kitContent}
+                </pre>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={async () => {
+                      await vaultDesktop.copySecure(kitContent, 'Emergency Kit', 120);
+                      setKitCopied(true);
+                      setTimeout(() => setKitCopied(false), 2000);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: `1px solid ${colors.border}`,
+                      background: colors.cardSecondary,
+                      color: colors.text,
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {kitCopied ? '✓ Copied to Clipboard' : 'Copy Emergency Kit'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([kitContent], { type: 'text/plain;charset=utf-8' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `VaultKey_Emergency_Kit_${Date.now()}.txt`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: colors.primary,
+                      color: '#FFFFFF',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Download (.txt)
+                  </button>
+                </div>
               </div>
             )}
           </div>

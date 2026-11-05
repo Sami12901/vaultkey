@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, clipboard, Tray, Menu, nativeImage, NativeImage, powerMonitor } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, clipboard, Tray, Menu, nativeImage, NativeImage, powerMonitor, session } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { VaultStorage } from './storage';
@@ -52,6 +52,21 @@ function createWindow() {
       sandbox: false,
       backgroundThrottling: false, // keep timers and background bridge responsive
     },
+  });
+
+  // Deny opening new windows/popups to protect against redirection and clickjacking attacks
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  // Enforce Content-Security-Policy on session requests
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:49152;",
+        ],
+      },
+    });
   });
 
   // Enable OS-level screen capture & screen share protection (renders solid black screen on capture)
@@ -308,6 +323,7 @@ ipcMain.handle('backup:delete', async (_, filePath) => {
 });
 ipcMain.handle('backup:exportJson', async () => storage.exportCredentialsJson());
 ipcMain.handle('backup:importJson', async (_, jsonStr) => storage.importCredentialsJson(jsonStr));
+ipcMain.handle('backup:importCsv', async (_, csvStr) => storage.importCsv(csvStr));
 
 // Native Windows File Dialogs
 ipcMain.handle('backup:pickFile', async () => {

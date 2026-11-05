@@ -104,3 +104,4 @@ windows/.vite/
 *.temp
  
 release_assets/
+.agents/

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,18 +24,23 @@ import {
   ImageIcon,
   VideoIcon,
   LockIcon,
+  ShieldIcon,
+  ShieldCheckIcon,
 } from '../../components/icons';
 import { vaultNative } from '../../services/nativeBridge';
+import { hibpService } from '../../services/hibpService';
 import { useVaultStore } from '../../stores/vaultStore';
 import { useTranslation } from '../../i18n';
-import { ItemType, PickedMediaResult } from '../../types';
+import { ItemType, PickedMediaResult, VaultItemSummary } from '../../types';
 
 interface ItemEditScreenProps {
+  item?: VaultItemSummary | null;
   onBack: () => void;
   onSaved: () => void;
 }
 
 export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
+  item,
   onBack,
   onSaved,
 }) => {
@@ -47,6 +52,8 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
   const [title, setTitle] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [checkingBreach, setCheckingBreach] = useState(false);
+  const [breachResult, setBreachResult] = useState<{ checked: boolean; breached: boolean; count: number; offline?: boolean } | null>(null);
   const [website, setWebsite] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -77,6 +84,73 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
   const [capturing, setCapturing] = useState(false);
 
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!item) return;
+
+    setItemType(item.type);
+    setTitle(item.title || '');
+    setSelectedFolderId(item.folderId || null);
+    setTagsInput(item.tags ? item.tags.join(', ') : '');
+
+    const populateSecrets = async () => {
+      try {
+        if (item.type === 'LOGIN') {
+          setUsername(item.username || '');
+          setWebsite(item.website || '');
+          const [pwd, nts] = await Promise.all([
+            vaultNative.getSecret(item.id, 'password').catch(() => ''),
+            vaultNative.getSecret(item.id, 'notes').catch(() => ''),
+          ]);
+          if (pwd) setPassword(pwd);
+          if (nts) setNotes(nts);
+        } else if (item.type === 'SECURE_NOTE') {
+          const content = await vaultNative.getSecret(item.id, 'content').catch(() => '');
+          if (content) setNotes(content);
+        } else if (item.type === 'CREDENTIAL_CARD') {
+          setBrand(item.cardBrand || 'Visa');
+          const [holder, num, expM, expY, cv, p, cType, bZip] = await Promise.all([
+            vaultNative.getSecret(item.id, 'cardholderName').catch(() => ''),
+            vaultNative.getSecret(item.id, 'cardNumber').catch(() => ''),
+            vaultNative.getSecret(item.id, 'expiryMonth').catch(() => ''),
+            vaultNative.getSecret(item.id, 'expiryYear').catch(() => ''),
+            vaultNative.getSecret(item.id, 'cvv').catch(() => ''),
+            vaultNative.getSecret(item.id, 'pin').catch(() => ''),
+            vaultNative.getSecret(item.id, 'cardType').catch(() => 'Credit'),
+            vaultNative.getSecret(item.id, 'billingZip').catch(() => ''),
+          ]);
+          if (holder) setCardholder(holder);
+          if (num) setCardNumber(num);
+          if (expM) setExpiryMonth(expM);
+          if (expY) setExpiryYear(expY);
+          if (cv) setCvv(cv);
+          if (p) setPin(p);
+          if (cType) setCardType(cType);
+          if (bZip) setBillingZip(bZip);
+        } else if (item.type === 'BANK_ACCOUNT') {
+          setBankName(item.bankName || '');
+          const [holder, num, routing, swift, ib, aType] = await Promise.all([
+            vaultNative.getSecret(item.id, 'accountHolder').catch(() => ''),
+            vaultNative.getSecret(item.id, 'accountNumber').catch(() => ''),
+            vaultNative.getSecret(item.id, 'routingNumber').catch(() => ''),
+            vaultNative.getSecret(item.id, 'swiftBic').catch(() => ''),
+            vaultNative.getSecret(item.id, 'iban').catch(() => ''),
+            vaultNative.getSecret(item.id, 'accountType').catch(() => 'Checking'),
+          ]);
+          if (holder) setAccountHolder(holder);
+          if (num) setAccountNumber(num);
+          if (routing) setRoutingNumber(routing);
+          if (swift) setSwiftBic(swift);
+          if (ib) setIban(ib);
+          if (aType) setAccountType(aType);
+        }
+      } catch (e) {
+        console.warn('Failed to load item secrets for editing:', e);
+      }
+    };
+
+    populateSecrets();
+  }, [item]);
 
   const handleCameraCapture = async (mode: 'PHOTO' | 'VIDEO' = 'PHOTO') => {
     setCapturing(true);
@@ -115,10 +189,34 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
       const res = await vaultNative.generatePassword({ length: 20 });
       if (res.password) {
         setPassword(res.password);
+        setBreachResult(null);
         ToastAndroid.show('Generated 20-character password', ToastAndroid.SHORT);
       }
     } catch {
       // Ignored
+    }
+  };
+
+  const handleCheckBreach = async () => {
+    if (!password) {
+      ToastAndroid.show('Please enter a password first', ToastAndroid.SHORT);
+      return;
+    }
+    setCheckingBreach(true);
+    try {
+      const res = await hibpService.checkPasswordBreach(password);
+      setBreachResult({ checked: true, breached: res.breached, count: res.count, offline: res.offline });
+      if (res.breached) {
+        ToastAndroid.show(`Compromised! Found in ${res.count.toLocaleString()} data breaches`, ToastAndroid.LONG);
+      } else if (res.offline) {
+        ToastAndroid.show('HIBP service offline / unreachable', ToastAndroid.SHORT);
+      } else {
+        ToastAndroid.show('Clean! No breaches found (k-anonymity verified)', ToastAndroid.SHORT);
+      }
+    } catch {
+      ToastAndroid.show('Failed to verify breach status', ToastAndroid.SHORT);
+    } finally {
+      setCheckingBreach(false);
     }
   };
 
@@ -138,6 +236,7 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
       if (itemType === 'LOGIN') {
         const urlsJson = website.trim() ? JSON.stringify([website.trim()]) : '[]';
         await vaultNative.saveLoginItem({
+          id: item?.id,
           title: title.trim(),
           username: username.trim(),
           password,
@@ -148,6 +247,7 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
         });
       } else if (itemType === 'SECURE_NOTE') {
         await vaultNative.saveSecureNote({
+          id: item?.id,
           title: title.trim(),
           content: notes.trim(),
           folderId: selectedFolderId,
@@ -155,6 +255,7 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
         });
       } else if (itemType === 'CREDENTIAL_CARD') {
         await vaultNative.saveCreditCard({
+          id: item?.id,
           title: title.trim(),
           cardholderName: cardholder.trim(),
           cardNumber: cardNumber.trim(),
@@ -170,6 +271,7 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
         });
       } else if (itemType === 'BANK_ACCOUNT') {
         await vaultNative.saveBankAccount({
+          id: item?.id,
           title: title.trim(),
           bankName: bankName.trim(),
           accountHolder: accountHolder.trim(),
@@ -212,7 +314,7 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
-        title={t('addNewItem')}
+        title={item ? (t('edit') || 'Edit Item') : t('addNewItem')}
         onBack={onBack}
         rightAction={
           <Button
@@ -318,7 +420,10 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
                 <Input
                   label={t('passwordLabel')}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setBreachResult(null);
+                  }}
                   placeholder="Enter or generate password"
                   isPassword
                 />
@@ -330,6 +435,47 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
                 accessibilityLabel="Generate password"
               >
                 <RefreshIcon size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* HIBP Breach Checker Chip */}
+            <View style={styles.breachRow}>
+              <TouchableOpacity
+                style={[
+                  styles.breachBtn,
+                  breachResult?.breached
+                    ? styles.breachBtnDanger
+                    : breachResult?.checked && !breachResult?.offline
+                    ? styles.breachBtnSafe
+                    : styles.breachBtnNeutral,
+                ]}
+                onPress={handleCheckBreach}
+                disabled={checkingBreach}
+              >
+                {checkingBreach ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : breachResult?.breached ? (
+                  <>
+                    <ShieldIcon size={14} color="#EF4444" />
+                    <Text style={styles.breachDangerText}>
+                      Compromised: in {breachResult.count.toLocaleString()} breaches!
+                    </Text>
+                  </>
+                ) : breachResult?.checked && !breachResult.offline ? (
+                  <>
+                    <ShieldCheckIcon size={14} color="#10B981" />
+                    <Text style={styles.breachSafeText}>
+                      Clean: 0 breaches detected (k-Anonymity)
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <ShieldIcon size={14} color={colors.textSecondary} />
+                    <Text style={[styles.breachNeutralText, { color: colors.textSecondary }]}>
+                      {breachResult?.offline ? 'Breach API Offline - Retry' : 'Check HaveIBeenPwned Breach Status'}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
 
@@ -924,5 +1070,45 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: 2,
+  },
+  breachRow: {
+    marginBottom: spacing.md,
+    marginTop: -spacing.xs,
+  },
+  breachBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  breachBtnNeutral: {
+    backgroundColor: colors.cardSecondary,
+    borderColor: colors.border,
+  },
+  breachBtnDanger: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#EF4444',
+  },
+  breachBtnSafe: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
+  },
+  breachNeutralText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.medium,
+  },
+  breachDangerText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+    color: '#EF4444',
+  },
+  breachSafeText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+    color: '#10B981',
   },
 });

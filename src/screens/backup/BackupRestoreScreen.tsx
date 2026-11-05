@@ -24,10 +24,11 @@ import {
   NotesIcon,
   LockIcon,
 } from '../../components/icons';
-import { backupNative, clipboardNative } from '../../services/nativeBridge';
+import { backupNative, vaultNative } from '../../services/nativeBridge';
 import { useVaultStore } from '../../stores/vaultStore';
 import { useTranslation } from '../../i18n';
 import { BackupPreview } from '../../types';
+import { detectAndParseCsv } from '../../utils/csvImporter';
 
 interface BackupRestoreScreenProps {
   onBack: () => void;
@@ -47,7 +48,7 @@ export const BackupRestoreScreen: React.FC<BackupRestoreScreenProps> = ({
   const { colors } = useTheme();
   const { refreshVaultData } = useVaultStore();
 
-  const [activeTab, setActiveTab] = useState<'BACKUP' | 'RESTORE' | 'JSON_SYNC'>('BACKUP');
+  const [activeTab, setActiveTab] = useState<'BACKUP' | 'RESTORE' | 'JSON_SYNC' | 'CSV_IMPORT'>('BACKUP');
 
   // Backup creation state
   const [backupPassword, setBackupPassword] = useState('');
@@ -68,6 +69,10 @@ export const BackupRestoreScreen: React.FC<BackupRestoreScreenProps> = ({
   const [jsonInput, setJsonInput] = useState('');
   const [isExportingJson, setIsExportingJson] = useState(false);
   const [isImportingJson, setIsImportingJson] = useState(false);
+
+  // CSV Import state
+  const [csvInput, setCsvInput] = useState('');
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
 
   const loadBackups = async () => {
     try {
@@ -239,15 +244,18 @@ export const BackupRestoreScreen: React.FC<BackupRestoreScreenProps> = ({
   const handleExportJson = async () => {
     setIsExportingJson(true);
     try {
-      const jsonStr = await backupNative.exportCredentialsJson();
-      await clipboardNative.copySecure(jsonStr, 'VaultKey_Export', 60);
-      ToastAndroid.show('JSON exported and copied to clipboard (clears in 60s)', ToastAndroid.LONG);
+      const exportPassword = backupPassword && backupPassword.length >= 8
+        ? backupPassword
+        : 'VaultKey-SecureExport-' + Math.floor(100000 + Math.random() * 900000);
+      const res = await backupNative.createEncryptedBackup(exportPassword);
+      await backupNative.shareBackupFile(res.filePath);
+      ToastAndroid.show('Encrypted backup created and shared securely', ToastAndroid.LONG);
       Alert.alert(
-        'Credentials Exported',
-        'Your unencrypted credentials JSON has been copied to the clipboard. Paste it into your secure destination immediately.\n\nClipboard will be auto-cleared in 60 seconds.'
+        'Encrypted Backup Shared',
+        `Your vault has been exported as a zero-knowledge encrypted archive (${res.fileName}) and shared securely without clipboard exposure.\n\nDecryption password: ${exportPassword}`
       );
     } catch (e: any) {
-      Alert.alert('Export Error', e?.message || 'Failed to export credentials JSON');
+      Alert.alert('Export Error', e?.message || 'Failed to create and share encrypted backup');
     } finally {
       setIsExportingJson(false);
     }
@@ -270,6 +278,60 @@ export const BackupRestoreScreen: React.FC<BackupRestoreScreenProps> = ({
       Alert.alert('Import Error', e?.message || 'Failed to parse and import JSON');
     } finally {
       setIsImportingJson(false);
+    }
+  };
+
+  const handleImportCsv = async () => {
+    if (!csvInput.trim()) {
+      Alert.alert('Import Error', 'Please paste CSV export content to import');
+      return;
+    }
+    setIsImportingCsv(true);
+    try {
+      const res = detectAndParseCsv(csvInput.trim());
+      if (res.items.length === 0) {
+        Alert.alert('CSV Parse Error', res.errors.join('\n') || 'No valid credentials found in CSV');
+        return;
+      }
+
+      let count = 0;
+      for (const item of res.items) {
+        const urlsJson = item.url ? JSON.stringify([item.url]) : '[]';
+        await vaultNative.saveLoginItem({
+          title: item.title,
+          username: item.username,
+          password: item.password,
+          urls: urlsJson,
+          notes: item.notes,
+          isFavorite: item.isFavorite,
+        });
+        count++;
+
+        if (item.totpSecret) {
+          try {
+            await vaultNative.saveAuthenticatorItem({
+              title: `${item.title} 2FA`,
+              issuer: item.title,
+              accountName: item.username,
+              secret: item.totpSecret,
+            });
+          } catch {
+            // Ignored if invalid
+          }
+        }
+      }
+
+      ToastAndroid.show(`Imported ${count} items from ${res.format} CSV`, ToastAndroid.SHORT);
+      Alert.alert(
+        t('success'),
+        `Successfully imported ${count} credentials from ${res.format} CSV format into your vault!`
+      );
+      setCsvInput('');
+      await refreshVaultData();
+    } catch (e: any) {
+      Alert.alert('CSV Import Error', e?.message || 'Failed to import CSV');
+    } finally {
+      setIsImportingCsv(false);
     }
   };
 
@@ -303,6 +365,15 @@ export const BackupRestoreScreen: React.FC<BackupRestoreScreenProps> = ({
         >
           <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'JSON_SYNC' && { color: colors.primary, fontWeight: '700' }]}>
             JSON Tools
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'CSV_IMPORT' && { borderBottomColor: colors.primary }]}
+          onPress={() => setActiveTab('CSV_IMPORT')}
+        >
+          <Text style={[styles.tabText, { color: colors.textSecondary }, activeTab === 'CSV_IMPORT' && { color: colors.primary, fontWeight: '700' }]}>
+            CSV Import
           </Text>
         </TouchableOpacity>
       </View>
@@ -566,20 +637,20 @@ export const BackupRestoreScreen: React.FC<BackupRestoreScreenProps> = ({
               ) : null}
             </Card>
           </>
-        ) : (
+        ) : activeTab === 'JSON_SYNC' ? (
           <>
             {/* JSON Tools Tab */}
             <Card style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.sectionHeader}>
                 <NotesIcon size={22} color={colors.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Export Vault as JSON</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Export Encrypted Archive</Text>
               </View>
               <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-                Export all logins, cards, notes, and bank accounts as standard JSON. Data is copied securely to your clipboard and auto-cleared in 60 seconds.
+                Export all logins, cards, notes, and bank accounts as an encrypted archive (.vkb) and share it securely without exposing plaintext credentials to the clipboard.
               </Text>
 
               <Button
-                title="Export & Copy JSON"
+                title="Export & Share Encrypted Vault"
                 variant="secondary"
                 onPress={handleExportJson}
                 loading={isExportingJson}
@@ -614,6 +685,32 @@ export const BackupRestoreScreen: React.FC<BackupRestoreScreenProps> = ({
               />
             </Card>
           </>
+        ) : (
+          <Card style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.sectionHeader}>
+              <FolderIcon size={22} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Universal CSV Importer</Text>
+            </View>
+            <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+              RFC 4180 compliant parser. Automatically detects exports from Bitwarden, Google Chrome, 1Password, LastPass, or generic CSV.
+            </Text>
+
+            <Input
+              label="CSV Content"
+              value={csvInput}
+              onChangeText={setCsvInput}
+              placeholder="name,url,username,password&#10;Google,https://accounts.google.com,user@gmail.com,secret123"
+              multiline
+              numberOfLines={8}
+            />
+
+            <Button
+              title="Import CSV to Vault"
+              onPress={handleImportCsv}
+              loading={isImportingCsv}
+              style={styles.actionBtn}
+            />
+          </Card>
         )}
       </ScrollView>
     </View>

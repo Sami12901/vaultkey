@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,35 +16,28 @@ import { VaultItemSummary } from '../../types';
 import { VaultItemCard } from '../../components/vault/VaultItemCard';
 import { CategoryFilterChips } from '../../components/vault/CategoryFilterChips';
 import { EmptyState } from '../../components/common/EmptyState';
-import { Card } from '../../components/common/Card';
 import {
   LockIcon,
-  KeyIcon,
-  SettingsIcon,
   SearchIcon,
   ShieldCheckIcon,
   AlertTriangleIcon,
   AddIcon,
-  BackupIcon,
 } from '../../components/icons';
 import { useTranslation } from '../../i18n';
 
 interface VaultHomeScreenProps {
   onSelectItem: (item: VaultItemSummary) => void;
   onAddNew: () => void;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
   onOpenSecurity: () => void;
-  onOpenGenerator: () => void;
-  onOpenBackup: () => void;
+  onOpenGenerator?: () => void;
+  onOpenBackup?: () => void;
 }
 
 export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
   onSelectItem,
   onAddNew,
-  onOpenSettings,
   onOpenSecurity,
-  onOpenGenerator,
-  onOpenBackup,
 }) => {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -76,11 +69,36 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
   };
 
   const score = securityAnalysis?.score ?? 100;
-  const hasSecurityIssues = (securityAnalysis?.weakCount || 0) + (securityAnalysis?.reusedCount || 0) > 0;
+  const hasSecurityIssues =
+    (securityAnalysis?.weakCount || 0) +
+      (securityAnalysis?.reusedCount || 0) +
+      (securityAnalysis?.insecureHttpCount || 0) +
+      (securityAnalysis?.missing2faCount || 0) >
+    0;
+
+  const counts = useMemo(() => {
+    const res: Record<string, number> = {
+      ALL: summaries.length,
+      LOGIN: 0,
+      SECURE_NOTE: 0,
+      CREDENTIAL_CARD: 0,
+      BANK_ACCOUNT: 0,
+      AUTHENTICATOR_2FA: 0,
+      SECURE_MEDIA: 0,
+    };
+    for (const item of summaries) {
+      if (res[item.type] !== undefined) {
+        res[item.type]++;
+      } else {
+        res[item.type] = 1;
+      }
+    }
+    return res;
+  }, [summaries]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Top Header */}
+      {/* Top Header - Decluttered: Only App branding, Status indicator, and Lock button */}
       <View style={[styles.header, { backgroundColor: colors.background }]}>
         <View style={styles.headerLeft}>
           <Image
@@ -99,33 +117,6 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
 
         <View style={styles.headerRight}>
           <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={onOpenGenerator}
-            accessibilityRole="button"
-            accessibilityLabel="Generator"
-          >
-            <KeyIcon size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={onOpenBackup}
-            accessibilityRole="button"
-            accessibilityLabel="Backup"
-          >
-            <BackupIcon size={22} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={onOpenSettings}
-            accessibilityRole="button"
-            accessibilityLabel="Settings"
-          >
-            <SettingsIcon size={22} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[styles.iconBtn, styles.lockBtn]}
             onPress={lock}
             accessibilityRole="button"
@@ -136,33 +127,111 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
         </View>
       </View>
 
-      {/* Security Health Mini-Card */}
-      <Card style={styles.securityCard} onPress={onOpenSecurity}>
-        <View style={styles.securityRow}>
-          <View style={styles.securityIconWrap}>
-            {hasSecurityIssues ? (
-              <AlertTriangleIcon size={24} color={colors.warning} />
-            ) : (
-              <ShieldCheckIcon size={24} color={colors.primary} />
-            )}
+      {/* Sleek Glassmorphic Security Banner */}
+      <TouchableOpacity
+        style={[
+          styles.glassmorphicBanner,
+          {
+            backgroundColor: colors.card,
+            borderColor: hasSecurityIssues ? 'rgba(245, 158, 11, 0.35)' : 'rgba(16, 185, 129, 0.3)',
+          },
+        ]}
+        onPress={onOpenSecurity}
+        activeOpacity={0.85}
+      >
+        <View style={styles.bannerTopRow}>
+          <View style={styles.bannerTitleRow}>
+            <View
+              style={[
+                styles.bannerShieldWrap,
+                {
+                  backgroundColor: hasSecurityIssues
+                    ? 'rgba(245, 158, 11, 0.15)'
+                    : 'rgba(16, 185, 129, 0.15)',
+                },
+              ]}
+            >
+              {hasSecurityIssues ? (
+                <AlertTriangleIcon size={18} color={colors.warning} />
+              ) : (
+                <ShieldCheckIcon size={18} color={colors.primary} />
+              )}
+            </View>
+            <View>
+              <Text style={[styles.bannerTitle, { color: colors.text }]}>{t('securityScore')}</Text>
+              <Text style={[styles.bannerScoreSubtitle, { color: hasSecurityIssues ? colors.warningLight : colors.primaryLight }]}>
+                {score}/100 • {score >= 80 ? 'Strong' : score >= 50 ? 'Moderate' : 'At Risk'}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.securityTextWrap}>
-            <Text style={[styles.securityTitle, { color: colors.text }]}>{t('securityScore')}: {score}/100</Text>
-            <Text style={[styles.securitySubtitle, { color: colors.textSecondary }]}>
-              {hasSecurityIssues
-                ? `${securityAnalysis?.weakCount || 0} weak, ${securityAnalysis?.reusedCount || 0} reused passwords`
-                : t('noSecurityIssues')}
-            </Text>
-          </View>
-
-          <View style={[styles.scoreBadge, { backgroundColor: hasSecurityIssues ? colors.warningMuted : colors.primaryMuted }]}>
-            <Text style={[styles.scoreNumber, { color: hasSecurityIssues ? colors.warningLight : colors.primaryLight }]}>
-              {score}%
-            </Text>
+          <View style={styles.bannerAuditAction}>
+            <Text style={[styles.bannerAuditText, { color: colors.primaryLight }]}>Audit ↗</Text>
           </View>
         </View>
-      </Card>
+
+        {/* Smooth Gradient Progress Bar */}
+        <View style={styles.progressBarTrack}>
+          <View
+            style={[
+              styles.progressBarFill,
+              {
+                width: `${Math.min(100, Math.max(0, score))}%`,
+                backgroundColor: score >= 80 ? colors.primary : score >= 50 ? colors.warning : colors.danger,
+              },
+            ]}
+          />
+        </View>
+
+        {/* Compact Threat Breakdown Chips */}
+        <View style={styles.threatChipsRow}>
+          {hasSecurityIssues ? (
+            <>
+              {Boolean(securityAnalysis?.weakCount) && (
+                <View style={[styles.threatChip, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+                  <Text style={[styles.threatChipText, { color: colors.dangerLight }]}>
+                    ⚠️ {securityAnalysis?.weakCount} weak
+                  </Text>
+                </View>
+              )}
+              {Boolean(securityAnalysis?.reusedCount) && (
+                <View style={[styles.threatChip, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}>
+                  <Text style={[styles.threatChipText, { color: colors.warningLight }]}>
+                    🔄 {securityAnalysis?.reusedCount} reused
+                  </Text>
+                </View>
+              )}
+              {Boolean(securityAnalysis?.oldCount) && (
+                <View style={[styles.threatChip, { backgroundColor: 'rgba(148, 163, 184, 0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }]}>
+                  <Text style={[styles.threatChipText, { color: colors.textSecondary }]}>
+                    ⏳ {securityAnalysis?.oldCount} old
+                  </Text>
+                </View>
+              )}
+              {Boolean(securityAnalysis?.insecureHttpCount) && (
+                <View style={[styles.threatChip, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+                  <Text style={[styles.threatChipText, { color: colors.dangerLight }]}>
+                    🌐 {securityAnalysis?.insecureHttpCount} http
+                  </Text>
+                </View>
+              )}
+              {Boolean(securityAnalysis?.missing2faCount) && (
+                <View style={[styles.threatChip, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}>
+                  <Text style={[styles.threatChipText, { color: colors.warningLight }]}>
+                    🛡️ {securityAnalysis?.missing2faCount} no 2fa
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={[styles.threatChip, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.25)' }]}>
+              <Text style={[styles.threatChipText, { color: colors.primaryLight }]}>
+                ✓ Zero vulnerabilities found
+              </Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
 
       {/* Search Input */}
       <View style={styles.searchContainer}>
@@ -184,13 +253,14 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
         onSelectType={setFilterType}
         favoritesOnly={favoritesOnly}
         onToggleFavoritesOnly={() => setFavoritesOnly(!favoritesOnly)}
+        counts={counts}
       />
 
       {/* Item List */}
       <FlatList
         data={summaries}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 110 }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
@@ -297,41 +367,78 @@ const styles = StyleSheet.create({
     borderColor: colors.dangerMuted,
     backgroundColor: colors.dangerMuted,
   },
-  securityCard: {
+  glassmorphicBanner: {
     marginHorizontal: spacing.base,
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.base,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
   },
-  securityRow: {
+  bannerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  securityIconWrap: {
-    marginRight: spacing.md,
+  bannerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  securityTextWrap: {
-    flex: 1,
+  bannerShieldWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  securityTitle: {
+  bannerTitle: {
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.bold,
-    color: colors.text,
   },
-  securitySubtitle: {
+  bannerScoreSubtitle: {
     fontSize: typography.fontSizes.xs,
-    color: colors.textSecondary,
-    marginTop: 2,
+    fontWeight: typography.fontWeights.medium,
+    marginTop: 1,
   },
-  scoreBadge: {
+  bannerAuditAction: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: radius.sm,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
-  scoreNumber: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.bold,
+  bannerAuditText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  progressBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginTop: spacing.sm,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  threatChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  threatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  threatChipText: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.medium,
   },
   searchContainer: {
     paddingHorizontal: spacing.base,
@@ -355,7 +462,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.base,
-    paddingBottom: 80,
+    paddingBottom: 110,
   },
   fab: {
     position: 'absolute',
@@ -374,3 +481,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
 });
+
+export const HomeScreen = VaultHomeScreen;

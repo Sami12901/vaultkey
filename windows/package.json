@@ -1,6 +1,6 @@
 {
   "name": "vaultkey-windows",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "VaultKey Zero-Knowledge Password & Security Manager for Windows",
   "main": "dist-electron/main.js",
   "author": "VaultKey Team",
@@ -10,6 +10,7 @@
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:renderer && npm run build:electron",
+    "test": "npm run build:electron && node --experimental-strip-types --test test/recoveryKit.test.ts test/csvImporter.test.ts test/crypto.test.ts test/storage.test.cjs",
     "start": "electron .",
     "package:dir": "npm run build && electron-builder --win --dir",
     "package": "npm run build && electron-builder --win"

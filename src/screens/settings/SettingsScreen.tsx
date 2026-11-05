@@ -39,8 +39,10 @@ import {
   autofillNative,
   securityNative,
   updateNative,
+  clipboardNative,
   UpdateInfo,
 } from '../../services/nativeBridge';
+import { generateEmergencyKitContent } from '../../utils/recoveryKit';
 import { UpdateModal } from '../../components/common/UpdateModal';
 import { SetupOnboardingModal } from '../../components/common/SetupOnboardingModal';
 import { CloudSyncGuideModal } from '../../components/common/CloudSyncGuideModal';
@@ -148,6 +150,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Setup & Sync Guide Modals
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showSyncGuideModal, setShowSyncGuideModal] = useState(false);
+
+  // Emergency Recovery Kit State
+  const [showEmergencyKitModal, setShowEmergencyKitModal] = useState(false);
+  const [emergencyKitText, setEmergencyKitText] = useState('');
+
+  const handleOpenEmergencyKit = () => {
+    const text = generateEmergencyKitContent({
+      vaultName: 'VaultKey Mobile Vault',
+      userEmail: 'mobile-owner@vaultkey.local',
+    });
+    setEmergencyKitText(text);
+    setShowEmergencyKitModal(true);
+  };
+
+  const handleCopyEmergencyKit = async () => {
+    try {
+      await clipboardNative.copySecure(emergencyKitText, 'Emergency Recovery Kit', 120);
+      ToastAndroid.show('Recovery Kit copied securely to clipboard', ToastAndroid.LONG);
+    } catch {
+      ToastAndroid.show('Failed to copy to clipboard', ToastAndroid.SHORT);
+    }
+  };
 
   const handleManualCheckUpdate = async () => {
     setCheckingUpdate(true);
@@ -544,6 +568,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </View>
             <ChevronRightIcon size={20} color={colors.textMuted} />
           </TouchableOpacity>
+
+          {/* Emergency Access & Recovery Kit */}
+          <TouchableOpacity style={styles.navRow} onPress={handleOpenEmergencyKit}>
+            <View style={styles.navRowLeft}>
+              <ShieldIcon size={22} color={colors.primary} />
+              <View style={styles.navText}>
+                <Text style={styles.settingLabel}>Emergency Access & Recovery Kit</Text>
+                <Text style={styles.settingDesc}>Standardized printable zero-knowledge recovery capsule</Text>
+              </View>
+            </View>
+            <ChevronRightIcon size={20} color={colors.textMuted} />
+          </TouchableOpacity>
         </Card>
 
         {/* Master Password & Vault Administration */}
@@ -612,7 +648,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             />
             <View style={styles.aboutTextWrap}>
               <Text style={styles.aboutTitle}>VaultKey</Text>
-              <Text style={styles.aboutVersion}>Version 1.0.0 (Production)</Text>
+              <Text style={styles.aboutVersion}>Version 1.3.0 (Production)</Text>
               <Text style={styles.aboutSubtitle}>Hardware-Backed Zero-Knowledge Security</Text>
             </View>
           </View>
@@ -788,6 +824,58 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         visible={showSyncGuideModal}
         onClose={() => setShowSyncGuideModal(false)}
       />
+
+      {/* Emergency Access & Digital Recovery Kit Modal */}
+      <Modal
+        visible={showEmergencyKitModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEmergencyKitModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Card style={[styles.langModalCard, { maxHeight: '85%' }]}>
+            <View style={styles.langModalHeader}>
+              <View style={styles.langModalTitleRow}>
+                <ShieldIcon size={22} color={colors.primary} />
+                <View style={styles.langModalTextCol}>
+                  <Text style={[styles.langModalTitle, { color: colors.text }]}>
+                    Emergency Recovery Kit
+                  </Text>
+                  <Text style={styles.langModalSubtitle}>
+                    Standardized zero-knowledge recovery capsule
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.langCloseBtn}
+                onPress={() => setShowEmergencyKitModal(false)}
+              >
+                <CloseIcon size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 360, marginVertical: spacing.md, backgroundColor: colors.background, padding: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ fontFamily: 'monospace', fontSize: 11, color: colors.text }}>
+                {emergencyKitText}
+              </Text>
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <Button
+                title="Copy Recovery Kit"
+                onPress={handleCopyEmergencyKit}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Close"
+                variant="secondary"
+                onPress={() => setShowEmergencyKitModal(false)}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </Card>
+        </View>
+      </Modal>
     </View>
   );
 };

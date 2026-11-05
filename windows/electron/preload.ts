@@ -44,6 +44,7 @@ const vaultKeyApi = {
   deleteBackupFile: (filePath: string) => ipcRenderer.invoke('backup:delete', filePath),
   exportCredentialsJson: () => ipcRenderer.invoke('backup:exportJson'),
   importCredentialsJson: (jsonStr: string) => ipcRenderer.invoke('backup:importJson', jsonStr),
+  importCsv: (csvStr: string) => ipcRenderer.invoke('backup:importCsv', csvStr),
 
   // Clipboard
   copySecure: (text: string, label?: string, timeoutSeconds?: number) => ipcRenderer.invoke('clipboard:copy', text, label, timeoutSeconds),
@@ -62,12 +63,18 @@ const vaultKeyApi = {
   getBridgeToken: () => ipcRenderer.invoke('bridge:getToken'),
   regenerateBridgeToken: () => ipcRenderer.invoke('bridge:regenerateToken'),
 
-  // Events
   onVaultUpdated: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on('vault:updated', handler);
     return () => {
       ipcRenderer.removeListener('vault:updated', handler);
+    };
+  },
+  onVaultLocked: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('vault:locked', handler);
+    return () => {
+      ipcRenderer.removeListener('vault:locked', handler);
     };
   },
 };

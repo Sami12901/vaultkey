@@ -400,6 +400,21 @@ class BackupModule(reactContext: ReactApplicationContext) :
                             itemObj.put("bankAccount", bankObj)
                         }
                     }
+                    ItemType.AUTHENTICATOR_2FA -> {
+                        val a = dao.getAuthenticatorRecord(item.id)
+                        if (a != null) {
+                            val secret = AesGcmCipher.decryptToString(a.encryptedSecret, a.secretIv, dek)
+                            val authObj = JSONObject().apply {
+                                put("issuer", a.issuer)
+                                put("accountName", a.accountName)
+                                put("secret", secret)
+                                put("algorithm", a.algorithm)
+                                put("digits", a.digits)
+                                put("period", a.period)
+                            }
+                            itemObj.put("authenticator", authObj)
+                        }
+                    }
                     else -> {}
                 }
                 itemsArr.put(itemObj)

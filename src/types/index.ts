@@ -65,6 +65,7 @@ export interface DecryptedVaultMediaResult {
 }
 
 export interface BankAccountInput {
+  id?: string;
   title: string;
   bankName: string;
   accountHolder: string;
@@ -79,6 +80,7 @@ export interface BankAccountInput {
 }
 
 export interface CreditCardInput {
+  id?: string;
   title: string;
   cardholderName: string;
   cardNumber: string;
@@ -111,6 +113,7 @@ export interface DecryptedFileResult {
 }
 
 export interface AuthenticatorInput {
+  id?: string;
   title: string;
   issuer: string;
   accountName: string;
@@ -152,6 +155,10 @@ export interface SecurityAnalysis {
   weakItemIds: string[];
   reusedItemIds: string[];
   oldItemIds: string[];
+  insecureHttpCount?: number;
+  insecureHttpItemIds?: string[];
+  missing2faCount?: number;
+  missing2faItemIds?: string[];
 }
 
 export type AppTheme = 'dark' | 'oled' | 'slate' | 'amethyst' | 'light';

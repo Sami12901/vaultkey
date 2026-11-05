@@ -24,6 +24,13 @@ import { VirtualBankAccount } from '../components/VirtualBankAccount';
 import { vaultDesktop } from '../services/vaultService';
 import { VaultItemSummary, ItemType, Folder } from '../types';
 
+const ClockIcon: React.FC<{ size?: number; color?: string }> = ({ size = 18, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
 interface VaultViewProps {
   onOpenGenerator: () => void;
   onOpenSecurity: () => void;
@@ -83,6 +90,18 @@ export const VaultView: React.FC<VaultViewProps> = ({
   const [editIban, setEditIban] = useState<string>('');
   const [editAccountType, setEditAccountType] = useState<string>('Checking');
 
+  // 2FA Authenticator fields
+  const [editIssuer, setEditIssuer] = useState<string>('');
+  const [editAccountName, setEditAccountName] = useState<string>('');
+  const [editSecret, setEditSecret] = useState<string>('');
+  const [editAlgorithm, setEditAlgorithm] = useState<string>('SHA1');
+  const [editDigits, setEditDigits] = useState<number>(6);
+  const [editPeriod, setEditPeriod] = useState<number>(30);
+
+  // Live TOTP token state
+  const [totpData, setTotpData] = useState<{ code: string; remainingSeconds: number; period: number; progress: number } | null>(null);
+  const [totpCopied, setTotpCopied] = useState<boolean>(false);
+
   // Secret display state
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
   const [secretCache, setSecretCache] = useState<Record<string, string>>({});
@@ -91,6 +110,32 @@ export const VaultView: React.FC<VaultViewProps> = ({
   useEffect(() => {
     loadData();
   }, [selectedCategory, selectedFolderId, favoritesOnly, searchQuery]);
+
+  // Live countdown and code generation for selected 2FA items
+  useEffect(() => {
+    let timer: any = null;
+    if (selectedItem && selectedItem.type === 'AUTHENTICATOR_2FA') {
+      const updateTotp = async () => {
+        try {
+          const res = await vaultDesktop.getTotpCode(selectedItem.id);
+          if (res) {
+            setTotpData(res);
+          }
+        } catch (e) {
+          console.warn('Failed to fetch TOTP token:', e);
+        }
+      };
+
+      updateTotp();
+      timer = setInterval(updateTotp, 1000);
+    } else {
+      setTotpData(null);
+    }
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [selectedItem?.id, selectedItem?.type]);
 
   const loadData = async () => {
     try {
@@ -191,6 +236,13 @@ export const VaultView: React.FC<VaultViewProps> = ({
     setEditSwiftBic('');
     setEditIban('');
     setEditAccountType('Checking');
+
+    setEditIssuer('');
+    setEditAccountName('');
+    setEditSecret('');
+    setEditAlgorithm('SHA1');
+    setEditDigits(6);
+    setEditPeriod(30);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -209,6 +261,19 @@ export const VaultView: React.FC<VaultViewProps> = ({
           password: editPassword,
           website: editWebsite,
           notes: editNotes,
+          folderId: editFolderId,
+          isFavorite: editFavorite,
+        });
+      } else if (editType === 'AUTHENTICATOR_2FA') {
+        await vaultDesktop.saveAuthenticatorItem({
+          id: selectedItem?.id,
+          title: editTitle || editIssuer || '2FA Authenticator',
+          issuer: editIssuer,
+          accountName: editAccountName,
+          secret: editSecret,
+          algorithm: editAlgorithm,
+          digits: Number(editDigits) || 6,
+          period: Number(editPeriod) || 30,
           folderId: editFolderId,
           isFavorite: editFavorite,
         });
@@ -259,32 +324,10 @@ export const VaultView: React.FC<VaultViewProps> = ({
     }
   };
 
-  const getItemIcon = (type: ItemType, item?: VaultItemSummary) => {
-    if (type === 'LOGIN' && item?.website) {
-      let domain = '';
-      try {
-        const raw = item.website.trim();
-        const urlStr = raw.startsWith('http://') || raw.startsWith('https://') ? raw : `https://${raw}`;
-        domain = new URL(urlStr).hostname;
-      } catch {
-        domain = item.website.split('/')[0];
-      }
-      if (domain && domain.includes('.')) {
-        return (
-          <img
-            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`}
-            alt=""
-            style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'contain' }}
-            onError={(e) => {
-              (e.target as HTMLElement).style.display = 'none';
-            }}
-          />
-        );
-      }
-    }
-
+  const getItemIcon = (type: ItemType, _item?: VaultItemSummary) => {
     switch (type) {
       case 'LOGIN': return <KeyIcon size={18} color={colors.primary} />;
+      case 'AUTHENTICATOR_2FA': return <ClockIcon size={18} color="#8B5CF6" />;
       case 'CREDENTIAL_CARD': return <CardIcon size={18} color="#F59E0B" />;
       case 'BANK_ACCOUNT': return <BankIcon size={18} color="#10B981" />;
       case 'SECURE_NOTE': return <NotesIcon size={18} color="#38BDF8" />;
@@ -325,6 +368,7 @@ export const VaultView: React.FC<VaultViewProps> = ({
             {[
               { id: 'ALL', name: t('allItems'), icon: <ShieldIcon size={16} /> },
               { id: 'LOGIN', name: t('logins'), icon: <KeyIcon size={16} /> },
+              { id: 'AUTHENTICATOR_2FA', name: '2FA Authenticator', icon: <ClockIcon size={16} /> },
               { id: 'CREDENTIAL_CARD', name: t('cards'), icon: <CardIcon size={16} /> },
               { id: 'BANK_ACCOUNT', name: t('bankAccounts'), icon: <BankIcon size={16} /> },
               { id: 'SECURE_NOTE', name: t('secureNotes'), icon: <NotesIcon size={16} /> },
@@ -549,8 +593,8 @@ export const VaultView: React.FC<VaultViewProps> = ({
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {(['LOGIN', 'CREDENTIAL_CARD', 'BANK_ACCOUNT', 'SECURE_NOTE'] as ItemType[]).map((tType) => (
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {(['LOGIN', 'AUTHENTICATOR_2FA', 'CREDENTIAL_CARD', 'BANK_ACCOUNT', 'SECURE_NOTE'] as ItemType[]).map((tType) => (
               <button
                 key={tType}
                 onClick={() => handleStartAddNew(tType)}
@@ -564,7 +608,7 @@ export const VaultView: React.FC<VaultViewProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                + {tType === 'CREDENTIAL_CARD' ? 'Card' : tType === 'BANK_ACCOUNT' ? 'Bank' : tType === 'SECURE_NOTE' ? 'Note' : 'Login'}
+                + {tType === 'AUTHENTICATOR_2FA' ? '2FA' : tType === 'CREDENTIAL_CARD' ? 'Card' : tType === 'BANK_ACCOUNT' ? 'Bank' : tType === 'SECURE_NOTE' ? 'Note' : 'Login'}
               </button>
             ))}
           </div>
@@ -962,6 +1006,126 @@ export const VaultView: React.FC<VaultViewProps> = ({
                 </>
               )}
 
+              {editType === 'AUTHENTICATOR_2FA' && (
+                <>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Service / Issuer</label>
+                    <input
+                      type="text"
+                      value={editIssuer}
+                      onChange={(e) => setEditIssuer(e.target.value)}
+                      placeholder="e.g. Google, GitHub, AWS"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: `1px solid ${colors.border}`,
+                        backgroundColor: colors.background,
+                        color: colors.text,
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Account Name / Email</label>
+                    <input
+                      type="text"
+                      value={editAccountName}
+                      onChange={(e) => setEditAccountName(e.target.value)}
+                      placeholder="e.g. user@example.com"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: `1px solid ${colors.border}`,
+                        backgroundColor: colors.background,
+                        color: colors.text,
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Secret Key (Base32)</label>
+                    <input
+                      type="password"
+                      value={editSecret}
+                      onChange={(e) => setEditSecret(e.target.value)}
+                      placeholder="e.g. JBSWY3DPEHPK3PXP"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: `1px solid ${colors.border}`,
+                        backgroundColor: colors.background,
+                        color: colors.text,
+                        outline: 'none',
+                        fontFamily: 'monospace',
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>Algorithm</label>
+                      <select
+                        value={editAlgorithm}
+                        onChange={(e) => setEditAlgorithm(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          border: `1px solid ${colors.border}`,
+                          backgroundColor: colors.background,
+                          color: colors.text,
+                          outline: 'none',
+                        }}
+                      >
+                        <option value="SHA1">SHA1</option>
+                        <option value="SHA256">SHA256</option>
+                        <option value="SHA512">SHA512</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>Digits</label>
+                      <select
+                        value={editDigits}
+                        onChange={(e) => setEditDigits(Number(e.target.value))}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          border: `1px solid ${colors.border}`,
+                          backgroundColor: colors.background,
+                          color: colors.text,
+                          outline: 'none',
+                        }}
+                      >
+                        <option value={6}>6</option>
+                        <option value={8}>8</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>Period (s)</label>
+                      <select
+                        value={editPeriod}
+                        onChange={(e) => setEditPeriod(Number(e.target.value))}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          borderRadius: '8px',
+                          border: `1px solid ${colors.border}`,
+                          backgroundColor: colors.background,
+                          color: colors.text,
+                          outline: 'none',
+                        }}
+                      >
+                        <option value={30}>30s</option>
+                        <option value={60}>60s</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {/* Notes */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>{t('notes')}</label>
@@ -1047,12 +1211,20 @@ export const VaultView: React.FC<VaultViewProps> = ({
                   <StarIcon size={18} filled={selectedItem.isFavorite} />
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setIsEditing(true);
                     setEditType(selectedItem.type);
                     setEditTitle(selectedItem.title);
                     setEditFolderId(selectedItem.folderId || null);
                     setEditFavorite(selectedItem.isFavorite);
+                    if (selectedItem.type === 'AUTHENTICATOR_2FA') {
+                      setEditIssuer((selectedItem as any).issuer || selectedItem.title || '');
+                      setEditAccountName((selectedItem as any).accountName || selectedItem.subtitle || '');
+                      try {
+                        const sec = await vaultDesktop.getSecret(selectedItem.id, 'secret');
+                        setEditSecret(sec);
+                      } catch {}
+                    }
                   }}
                   style={{
                     background: colors.cardSecondary,
@@ -1270,6 +1442,154 @@ export const VaultView: React.FC<VaultViewProps> = ({
                   </div>
                   <div style={{ whiteSpace: 'pre-wrap', lineHeight: '22px', fontSize: '14px', fontFamily: 'monospace' }}>
                     {secretCache['notes'] || selectedItem.subtitle || 'Loading note...'}
+                  </div>
+                </div>
+              )}
+
+              {/* 2FA Authenticator Details */}
+              {selectedItem.type === 'AUTHENTICATOR_2FA' && (
+                <div>
+                  {/* Big Hero TOTP Display */}
+                  <div
+                    style={{
+                      backgroundColor: colors.cardSecondary,
+                      padding: '24px',
+                      borderRadius: '16px',
+                      border: `1px solid ${colors.border}`,
+                      marginBottom: '20px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <ClockIcon size={18} color={colors.primary} />
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: colors.textSecondary }}>
+                        {(selectedItem as any).issuer || selectedItem.title} {(selectedItem as any).accountName ? `(${(selectedItem as any).accountName})` : ''}
+                      </span>
+                    </div>
+
+                    {/* Token & Ring Section */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px', margin: '12px 0' }}>
+                      {/* Live Circular Countdown Progress Ring */}
+                      {(() => {
+                        const progress = totpData?.progress ?? 1;
+                        const remaining = totpData?.remainingSeconds ?? 30;
+                        const strokeColor = remaining > 10 ? '#10B981' : remaining > 5 ? '#F59E0B' : '#EF4444';
+                        const radius = 24;
+                        const circumference = 2 * Math.PI * radius;
+                        const strokeDashoffset = circumference * (1 - Math.max(0, Math.min(1, progress)));
+
+                        return (
+                          <div style={{ position: 'relative', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="56" height="56" style={{ transform: 'rotate(-90deg)' }}>
+                              <circle
+                                cx="28"
+                                cy="28"
+                                r={radius}
+                                stroke={colors.border}
+                                strokeWidth="4"
+                                fill="transparent"
+                              />
+                              <circle
+                                cx="28"
+                                cy="28"
+                                r={radius}
+                                stroke={strokeColor}
+                                strokeWidth="4"
+                                strokeDasharray={circumference}
+                                strokeDashoffset={strokeDashoffset}
+                                strokeLinecap="round"
+                                fill="transparent"
+                                style={{ transition: 'stroke-dashoffset 0.8s linear, stroke 0.3s ease' }}
+                              />
+                            </svg>
+                            <span style={{ position: 'absolute', fontSize: '12px', fontWeight: 700, color: strokeColor }}>
+                              {remaining}s
+                            </span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Large Formatted TOTP Code */}
+                      <div
+                        style={{
+                          fontSize: '34px',
+                          fontWeight: 800,
+                          letterSpacing: '3px',
+                          fontFamily: 'monospace',
+                          color: (totpData?.remainingSeconds ?? 30) <= 5 ? '#EF4444' : colors.primary,
+                        }}
+                      >
+                        {totpData?.code
+                          ? (totpData.code.length === 6
+                              ? `${totpData.code.slice(0, 3)} ${totpData.code.slice(3)}`
+                              : totpData.code)
+                          : '••••••'}
+                      </div>
+                    </div>
+
+                    {/* 1-Click Copy Token Button */}
+                    <button
+                      onClick={async () => {
+                        if (totpData?.code) {
+                          await vaultDesktop.copySecure(totpData.code, '2FA Code', 30);
+                          setTotpCopied(true);
+                          setTimeout(() => setTotpCopied(false), 2000);
+                        }
+                      }}
+                      style={{
+                        marginTop: '12px',
+                        padding: '10px 24px',
+                        borderRadius: '10px',
+                        backgroundColor: totpCopied ? '#10B981' : colors.primary,
+                        border: 'none',
+                        color: '#FFFFFF',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontWeight: 600,
+                        fontSize: '14px',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {totpCopied ? <CheckIcon size={18} /> : <CopyIcon size={18} />}
+                      {totpCopied ? 'Copied 2FA Code!' : '1-Click Copy Token'}
+                    </button>
+                  </div>
+
+                  {/* Account Metadata Card */}
+                  <div style={{ backgroundColor: colors.cardSecondary, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase', marginBottom: '4px' }}>Issuer / Account</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: colors.text }}>
+                      {(selectedItem as any).issuer || selectedItem.title || '—'} {(selectedItem as any).accountName ? `• ${(selectedItem as any).accountName}` : ''}
+                    </div>
+                  </div>
+
+                  {/* Secret Key Card with Toggle */}
+                  <div style={{ backgroundColor: colors.cardSecondary, padding: '16px', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '16px' }}>
+                    <div style={{ fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase', marginBottom: '4px' }}>Secret Key (Base32)</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, fontFamily: 'monospace', letterSpacing: '1px' }}>
+                        {revealedSecrets['secret'] ? (secretCache['secret'] || '••••••••') : '•••• •••• •••• ••••'}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => handleToggleReveal('secret')}
+                          style={{ background: 'transparent', border: 'none', color: colors.textSecondary, cursor: 'pointer' }}
+                        >
+                          {revealedSecrets['secret'] ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                        </button>
+                        <button
+                          onClick={() => handleCopySecret('secret', 'Secret Key')}
+                          style={{ background: 'transparent', border: 'none', color: colors.primary, cursor: 'pointer' }}
+                        >
+                          {copiedKey === 'secret' ? <CheckIcon size={18} /> : <CopyIcon size={18} />}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
