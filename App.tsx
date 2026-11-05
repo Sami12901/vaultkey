@@ -198,6 +198,7 @@ function AppContent(): React.JSX.Element {
           <SettingsScreen
             onBack={() => setCurrentScreen('HOME')}
             onOpenAuditLog={() => setCurrentScreen('AUDIT_LOG')}
+            onOpenBackup={() => setCurrentScreen('BACKUP')}
           />
         );
       case 'AUDIT_LOG':

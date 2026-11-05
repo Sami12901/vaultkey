@@ -9,6 +9,7 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLock: () => void;
+  onOpenBackup?: () => void;
 }
 
 const THEME_OPTIONS = [
@@ -23,6 +24,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   onLock,
+  onOpenBackup,
 }) => {
   const { theme, setTheme, colors } = useTheme();
   const { language, setLanguage, t } = useTranslation();
@@ -760,6 +762,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Encrypted Backup & Universal Importer */}
+          <div style={{ marginTop: '16px', padding: '16px', borderRadius: '8px', border: `1px solid ${colors.border}`, background: colors.cardSecondary }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: colors.text }}>Encrypted Backup & Migration</span>
+              {onOpenBackup && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenBackup();
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: colors.primary,
+                    color: '#FFFFFF',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Open Backup & Restore
+                </button>
+              )}
+            </div>
+            <p style={{ fontSize: '12px', color: colors.textSecondary, lineHeight: '18px', margin: 0 }}>
+              Export AES-256-GCM encrypted .vaultkey backups, restore existing archives, or import passwords from Bitwarden, Google Chrome, 1Password, or LastPass CSV files.
+            </p>
           </div>
 
           {/* Quick Lock Action */}

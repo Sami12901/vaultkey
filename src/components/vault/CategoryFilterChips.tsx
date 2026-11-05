@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { radius, typography, spacing, useTheme } from '../../theme';
 import { useTranslation } from '../../i18n';
+import { StarIcon } from '../icons';
 
 interface CategoryFilterChipsProps {
   selectedType: string;
@@ -103,6 +104,11 @@ export const CategoryFilterChips: React.FC<CategoryFilterChipsProps> = ({
         accessibilityRole="button"
         accessibilityLabel="Filter Favorites"
       >
+        <StarIcon
+          size={14}
+          color={favoritesOnly ? colors.primaryLight : '#F59E0B'}
+          filled={favoritesOnly}
+        />
         <Text
           style={[
             styles.chipText,
@@ -110,7 +116,7 @@ export const CategoryFilterChips: React.FC<CategoryFilterChipsProps> = ({
             favoritesOnly && styles.chipTextSelected,
           ]}
         >
-          ★ {t('favorites')}
+          {t('favorites')}
         </Text>
         {counts.FAVORITES !== undefined ? (
           <View

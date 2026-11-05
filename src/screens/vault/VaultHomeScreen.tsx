@@ -22,6 +22,12 @@ import {
   ShieldCheckIcon,
   AlertTriangleIcon,
   AddIcon,
+  BackupIcon,
+  RepeatIcon,
+  ClockIcon,
+  GlobeIcon,
+  ShieldAlertIcon,
+  CheckCircleIcon,
 } from '../../components/icons';
 import { useTranslation } from '../../i18n';
 
@@ -38,6 +44,7 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
   onSelectItem,
   onAddNew,
   onOpenSecurity,
+  onOpenBackup,
 }) => {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -116,13 +123,23 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
         </View>
 
         <View style={styles.headerRight}>
+          {onOpenBackup ? (
+            <TouchableOpacity
+              style={[styles.iconBtn, { borderColor: colors.border }]}
+              onPress={onOpenBackup}
+              accessibilityRole="button"
+              accessibilityLabel={t('backupTitle')}
+            >
+              <BackupIcon size={18} color={colors.primaryLight} />
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             style={[styles.iconBtn, styles.lockBtn]}
             onPress={lock}
             accessibilityRole="button"
             accessibilityLabel={t('lock')}
           >
-            <LockIcon size={20} color={colors.dangerLight} />
+            <LockIcon size={18} color={colors.dangerLight} />
           </TouchableOpacity>
         </View>
       </View>
@@ -189,44 +206,50 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
             <>
               {Boolean(securityAnalysis?.weakCount) && (
                 <View style={[styles.threatChip, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+                  <AlertTriangleIcon size={12} color={colors.dangerLight} />
                   <Text style={[styles.threatChipText, { color: colors.dangerLight }]}>
-                    ⚠️ {securityAnalysis?.weakCount} weak
+                    {securityAnalysis?.weakCount} weak
                   </Text>
                 </View>
               )}
               {Boolean(securityAnalysis?.reusedCount) && (
                 <View style={[styles.threatChip, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}>
+                  <RepeatIcon size={12} color={colors.warningLight} />
                   <Text style={[styles.threatChipText, { color: colors.warningLight }]}>
-                    🔄 {securityAnalysis?.reusedCount} reused
+                    {securityAnalysis?.reusedCount} reused
                   </Text>
                 </View>
               )}
               {Boolean(securityAnalysis?.oldCount) && (
                 <View style={[styles.threatChip, { backgroundColor: 'rgba(148, 163, 184, 0.15)', borderColor: 'rgba(148, 163, 184, 0.3)' }]}>
+                  <ClockIcon size={12} color={colors.textSecondary} />
                   <Text style={[styles.threatChipText, { color: colors.textSecondary }]}>
-                    ⏳ {securityAnalysis?.oldCount} old
+                    {securityAnalysis?.oldCount} old
                   </Text>
                 </View>
               )}
               {Boolean(securityAnalysis?.insecureHttpCount) && (
                 <View style={[styles.threatChip, { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+                  <GlobeIcon size={12} color={colors.dangerLight} />
                   <Text style={[styles.threatChipText, { color: colors.dangerLight }]}>
-                    🌐 {securityAnalysis?.insecureHttpCount} http
+                    {securityAnalysis?.insecureHttpCount} http
                   </Text>
                 </View>
               )}
               {Boolean(securityAnalysis?.missing2faCount) && (
                 <View style={[styles.threatChip, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}>
+                  <ShieldAlertIcon size={12} color={colors.warningLight} />
                   <Text style={[styles.threatChipText, { color: colors.warningLight }]}>
-                    🛡️ {securityAnalysis?.missing2faCount} no 2fa
+                    {securityAnalysis?.missing2faCount} no 2fa
                   </Text>
                 </View>
               )}
             </>
           ) : (
             <View style={[styles.threatChip, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.25)' }]}>
+              <CheckCircleIcon size={13} color={colors.primaryLight} />
               <Text style={[styles.threatChipText, { color: colors.primaryLight }]}>
-                ✓ Zero vulnerabilities found
+                Zero vulnerabilities found
               </Text>
             </View>
           )}
@@ -435,6 +458,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: radius.full,
     borderWidth: 1,
+    gap: 5,
   },
   threatChipText: {
     fontSize: typography.fontSizes.xs,

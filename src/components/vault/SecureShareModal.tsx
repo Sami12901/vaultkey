@@ -90,7 +90,7 @@ export const SecureShareModal: React.FC<SecureShareModalProps> = ({
       setGeneratedCapsule(capsule);
 
       const shareMessage =
-        `🔐 VaultKey Encrypted Secret Capsule\n\n` +
+        `[VaultKey Encrypted Secret Capsule]\n\n` +
         `Title: ${item.title}\n` +
         `Payload:\n${capsule}\n\n` +
         `Protected by AES-256-GCM authenticated encryption.\n` +

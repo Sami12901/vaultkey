@@ -9,6 +9,9 @@ import {
 import { useTheme } from '../../theme';
 import {
   CloseIcon,
+  LockIcon,
+  LaptopIcon,
+  CloudUploadIcon,
 } from '../icons';
 
 interface CloudSyncGuideModalProps {
@@ -30,7 +33,7 @@ export const CloudSyncGuideModal: React.FC<CloudSyncGuideModalProps> = ({
       titleBn: '১০০% জিরো-নলেজ এনক্রিপশন',
       desc: 'Your credentials and 2FA codes are encrypted on your phone using AES-256-GCM before leaving the device. Even Google cannot see your passwords.',
       descBn: 'আপনার পাসওয়ার্ড এবং 2FA কোড আপনার ফোনেই লক করা হয়। গুগল ড্রাইভ কেবল হিজিবিজি ফাইল দেখবে, আপনার মাস্টার পাসওয়ার্ড ছাড়া এটি খোলা অসম্ভব!',
-      iconBadge: '🔒',
+      icon: <LockIcon size={32} color="#10B981" />,
       graphicBg: 'rgba(16, 185, 129, 0.12)',
       graphicBorder: '#10B981',
       graphicLabel: 'Device Enclave [Encrypted AES-256]',
@@ -41,7 +44,7 @@ export const CloudSyncGuideModal: React.FC<CloudSyncGuideModalProps> = ({
       titleBn: 'দ্রুত ওয়াই-ফাই লোকাল সিঙ্ক',
       desc: 'Sync directly between your phone and Windows PC over your local Wi-Fi network without sending any data over the public internet.',
       descBn: 'একই ওয়াইফাইতে থাকলে কোনো ইন্টারনেট ছাড়াই সরাসরি আপনার কম্পিউটার এবং মোবাইলের মধ্যে পাসওয়ার্ড ও কোড রিয়েল-টাইমে সিঙ্ক হবে।',
-      iconBadge: '⚡',
+      icon: <LaptopIcon size={32} color="#3B82F6" />,
       graphicBg: 'rgba(59, 130, 246, 0.12)',
       graphicBorder: '#3B82F6',
       graphicLabel: 'Local P2P Handshake [No Cloud]',
@@ -52,7 +55,7 @@ export const CloudSyncGuideModal: React.FC<CloudSyncGuideModalProps> = ({
       titleBn: 'অটোমেটিক ক্লাউড রিকভারি',
       desc: 'If you ever switch phones or reinstall, import your master-password encrypted backup in 1-click and restore all your passwords and authenticators.',
       descBn: 'নতুন ফোন কিনলে বা উইন্ডোজ পিসিতে লগইন করলেই মাস্টার পাসওয়ার্ড দিয়ে নিমেষেই সমস্ত 2FA কোড ও পাসওয়ার্ড ফিরে পান।',
-      iconBadge: '☁️',
+      icon: <CloudUploadIcon size={32} color="#8B5CF6" />,
       graphicBg: 'rgba(139, 92, 246, 0.12)',
       graphicBorder: '#8B5CF6',
       graphicLabel: 'E2EE .vaultkey Storage [Encrypted]',
@@ -86,7 +89,7 @@ export const CloudSyncGuideModal: React.FC<CloudSyncGuideModalProps> = ({
             ]}
           >
             <View style={styles.graphicIconWrapper}>
-              <Text style={styles.graphicBadgeText}>{slide.iconBadge}</Text>
+              {slide.icon}
             </View>
             <View style={styles.pulseBar}>
               <View style={[styles.pulseDot, { backgroundColor: slide.graphicBorder }]} />

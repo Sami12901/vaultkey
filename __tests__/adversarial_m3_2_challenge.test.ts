@@ -975,10 +975,11 @@ describe('Adversarial Challenge M3-2: Mobile UI/UX Layout Rules', () => {
     expect(headerRightSection).toContain('lockBtn');
     expect(headerRightSection).toContain('LockIcon');
 
-    // Redundant icons should NOT be in the header
+    // Redundant icons should NOT be in the header (available in bottom tabs)
     expect(headerRightSection).not.toContain('onOpenGenerator');
     expect(headerRightSection).not.toContain('onOpenSettings');
-    expect(headerRightSection).not.toContain('onOpenBackup');
+    // Local Backup is accessible in header for 1-tap vault safety
+    expect(headerRightSection).toContain('onOpenBackup');
   });
 
   it('confirms BottomTabBar uses dynamic Safe Area Insets to prevent gesture bar clipping', () => {

@@ -33,6 +33,8 @@ import {
   CloseIcon,
   SearchIcon,
   CloudDownloadIcon,
+  BackupIcon,
+  UploadIcon,
 } from '../../components/icons';
 import {
   vaultNative,
@@ -104,11 +106,13 @@ const THEME_OPTIONS: Array<{
 interface SettingsScreenProps {
   onBack: () => void;
   onOpenAuditLog: () => void;
+  onOpenBackup: () => void;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onBack,
   onOpenAuditLog,
+  onOpenBackup,
 }) => {
   const { t, language, setLanguage } = useTranslation();
   const { colors } = useTheme();
@@ -556,26 +560,55 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </View>
             <ChevronRightIcon size={20} color={colors.textMuted} />
           </TouchableOpacity>
+        </Card>
 
-          {/* Zero-Knowledge Sync Guide */}
-          <TouchableOpacity style={styles.navRow} onPress={() => setShowSyncGuideModal(true)}>
+        {/* Data Management, Backup & Migration */}
+        <Card style={styles.card}>
+          <Text style={styles.cardSectionTitle}>Data Management & Vault Backups</Text>
+
+          {/* Local Encrypted Backup & Restore */}
+          <TouchableOpacity style={styles.navRow} onPress={onOpenBackup} activeOpacity={0.7}>
             <View style={styles.navRowLeft}>
-              <CloudDownloadIcon size={22} color="#10B981" />
+              <BackupIcon size={22} color={colors.primary} />
               <View style={styles.navText}>
-                <Text style={styles.settingLabel}>Zero-Knowledge Sync Guide</Text>
-                <Text style={styles.settingDesc}>Animated E2EE Cloud & Wi-Fi LAN architecture</Text>
+                <Text style={styles.settingLabel}>Local Encrypted Backup (.vaultkey)</Text>
+                <Text style={styles.settingDesc}>Export AES-256-GCM encrypted backup or restore previous vault</Text>
+              </View>
+            </View>
+            <ChevronRightIcon size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Universal CSV / JSON Importer */}
+          <TouchableOpacity style={styles.navRow} onPress={onOpenBackup} activeOpacity={0.7}>
+            <View style={styles.navRowLeft}>
+              <UploadIcon size={22} color={colors.primary} />
+              <View style={styles.navText}>
+                <Text style={styles.settingLabel}>Import Passwords (CSV / JSON)</Text>
+                <Text style={styles.settingDesc}>Import from Bitwarden, Google Chrome, 1Password, LastPass</Text>
               </View>
             </View>
             <ChevronRightIcon size={20} color={colors.textMuted} />
           </TouchableOpacity>
 
           {/* Emergency Access & Recovery Kit */}
-          <TouchableOpacity style={styles.navRow} onPress={handleOpenEmergencyKit}>
+          <TouchableOpacity style={styles.navRow} onPress={handleOpenEmergencyKit} activeOpacity={0.7}>
             <View style={styles.navRowLeft}>
-              <ShieldIcon size={22} color={colors.primary} />
+              <ShieldCheckIcon size={22} color={colors.primary} />
               <View style={styles.navText}>
                 <Text style={styles.settingLabel}>Emergency Access & Recovery Kit</Text>
-                <Text style={styles.settingDesc}>Standardized printable zero-knowledge recovery capsule</Text>
+                <Text style={styles.settingDesc}>Printable recovery sheet with 4-char checksum</Text>
+              </View>
+            </View>
+            <ChevronRightIcon size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Zero-Knowledge Sync Guide */}
+          <TouchableOpacity style={styles.navRow} onPress={() => setShowSyncGuideModal(true)} activeOpacity={0.7}>
+            <View style={styles.navRowLeft}>
+              <GlobeIcon size={22} color={colors.primary} />
+              <View style={styles.navText}>
+                <Text style={styles.settingLabel}>Zero-Knowledge Sync Guide</Text>
+                <Text style={styles.settingDesc}>Animated E2EE Cloud & Wi-Fi LAN setup architecture</Text>
               </View>
             </View>
             <ChevronRightIcon size={20} color={colors.textMuted} />
@@ -648,7 +681,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             />
             <View style={styles.aboutTextWrap}>
               <Text style={styles.aboutTitle}>VaultKey</Text>
-              <Text style={styles.aboutVersion}>Version 1.3.0 (Production)</Text>
+              <Text style={styles.aboutVersion}>Version 1.3.1 (Production)</Text>
               <Text style={styles.aboutSubtitle}>Hardware-Backed Zero-Knowledge Security</Text>
             </View>
           </View>

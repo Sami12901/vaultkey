@@ -322,4 +322,57 @@ export const QrCodeIcon: React.FC<IconProps> = ({ size = 24, color = '#F8FAFC' }
   </Svg>
 );
 
+export const ClockIcon: React.FC<IconProps> = ({ size = 24, color = '#F8FAFC' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="10" />
+    <Polyline points="12 6 12 12 16 14" />
+  </Svg>
+);
+
+export const RepeatIcon: React.FC<IconProps> = ({ size = 24, color = '#F8FAFC' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Polyline points="17 1 21 5 17 9" />
+    <Path d="M3 11V9a4 4 0 0 1 4-4h14" />
+    <Polyline points="7 23 3 19 7 15" />
+    <Path d="M21 13v2a4 4 0 0 1-4 4H3" />
+  </Svg>
+);
+
+export const CheckCircleIcon: React.FC<IconProps> = ({ size = 24, color = '#10B981' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <Polyline points="22 4 12 14.01 9 11.01" />
+  </Svg>
+);
+
+export const HardDriveIcon: React.FC<IconProps> = ({ size = 24, color = '#F8FAFC' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="22" y1="12" x2="2" y2="12" />
+    <Path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    <Line x1="6" y1="16" x2="6.01" y2="16" />
+    <Line x1="10" y1="16" x2="10.01" y2="16" />
+  </Svg>
+);
+
+export const SmartphoneIcon: React.FC<IconProps> = ({ size = 24, color = '#F8FAFC' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+    <Line x1="12" y1="18" x2="12.01" y2="18" />
+  </Svg>
+);
+
+export const LaptopIcon: React.FC<IconProps> = ({ size = 24, color = '#F8FAFC' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55A1 1 0 0 1 20.38 20H3.62a1 1 0 0 1-.9-1.45L4 16" />
+  </Svg>
+);
+
+export const CloudUploadIcon: React.FC<IconProps> = ({ size = 24, color = '#10B981' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+    <Path d="M12 12v9" />
+    <Path d="m16 16-4-4-4 4" />
+  </Svg>
+);
+
 export * from './BrandIcons';

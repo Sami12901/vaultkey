@@ -205,6 +205,7 @@ export const App: React.FC = () => {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         onLock={handleLock}
+        onOpenBackup={() => setShowBackup(true)}
       />
     </div>
   );

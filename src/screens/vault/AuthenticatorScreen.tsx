@@ -19,6 +19,8 @@ import {
   KeyIcon,
   QrCodeIcon,
   CloseIcon,
+  CheckCircleIcon,
+  AlertTriangleIcon,
 } from '../../components/icons';
 import { TotpCountdownRing } from '../../components/common/TotpCountdownRing';
 import { vaultNative, clipboardNative, qrNative } from '../../services/nativeBridge';
@@ -387,9 +389,19 @@ export const AuthenticatorScreen: React.FC = () => {
             />
 
             {manualSecret ? (
-              <Text style={{ fontSize: 11, color: validateBase32Secret(manualSecret) ? '#10B981' : '#EF4444', marginBottom: 12 }}>
-                {validateBase32Secret(manualSecret) ? '✓ Valid Base32 Secret Key' : '⚠️ Invalid key: Only A-Z and 2-7 characters allowed'}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                {validateBase32Secret(manualSecret) ? (
+                  <>
+                    <CheckCircleIcon size={14} color="#10B981" />
+                    <Text style={{ fontSize: 11, color: '#10B981' }}>Valid Base32 Secret Key</Text>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangleIcon size={14} color="#EF4444" />
+                    <Text style={{ fontSize: 11, color: '#EF4444' }}>Invalid key: Only A-Z and 2-7 characters allowed</Text>
+                  </>
+                )}
+              </View>
             ) : null}
 
             <View style={styles.modalBtnRow}>
