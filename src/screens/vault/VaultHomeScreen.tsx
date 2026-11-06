@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Image,
+  Platform,
 } from 'react-native';
 import { colors } from '../../theme/colors';
 import { radius, typography, spacing, useTheme } from '../../theme';
@@ -28,6 +29,7 @@ import {
   GlobeIcon,
   ShieldAlertIcon,
   CheckCircleIcon,
+  CloseIcon,
 } from '../../components/icons';
 import { useTranslation } from '../../i18n';
 
@@ -102,6 +104,19 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
     }
     return res;
   }, [summaries]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: VaultItemSummary }) => (
+      <VaultItemCard
+        item={item}
+        onPress={() => onSelectItem(item)}
+        onToggleFavorite={() => toggleFavorite(item.id)}
+      />
+    ),
+    [onSelectItem, toggleFavorite]
+  );
+
+  const keyExtractor = useCallback((item: VaultItemSummary) => item.id, []);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -267,6 +282,17 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.clearSearchBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search query"
+            >
+              <CloseIcon size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
@@ -282,18 +308,17 @@ export const VaultHomeScreen: React.FC<VaultHomeScreenProps> = ({
       {/* Item List */}
       <FlatList
         data={summaries}
-        keyExtractor={item => item.id}
+        keyExtractor={keyExtractor}
         contentContainerStyle={[styles.listContent, { paddingBottom: 110 }]}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
+        updateCellsBatchingPeriod={50}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
-        renderItem={({ item }) => (
-          <VaultItemCard
-            item={item}
-            onPress={() => onSelectItem(item)}
-            onToggleFavorite={() => toggleFavorite(item.id)}
-          />
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={
           <EmptyState
             title={searchQuery ? t('searchPlaceholder') : 'No vault items yet.'}
@@ -484,14 +509,19 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: typography.fontSizes.base,
   },
+  clearSearchBtn: {
+    padding: spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   listContent: {
     paddingHorizontal: spacing.base,
     paddingBottom: 110,
   },
   fab: {
     position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
+    right: spacing.base,
+    bottom: spacing.base,
     width: 56,
     height: 56,
     borderRadius: radius.full,

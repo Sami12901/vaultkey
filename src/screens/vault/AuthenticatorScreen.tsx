@@ -9,6 +9,7 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useTheme } from '../../theme';
 import {
@@ -200,6 +201,17 @@ export const AuthenticatorScreen: React.FC = () => {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.clearSearchBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+            >
+              <CloseIcon size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
@@ -226,6 +238,11 @@ export const AuthenticatorScreen: React.FC = () => {
           data={filteredList}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
+          updateCellsBatchingPeriod={50}
           renderItem={({ item }) => {
             const isCopied = copiedId === item.id;
             return (
@@ -500,6 +517,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     paddingVertical: 0,
+  },
+  clearSearchBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
     paddingHorizontal: 16,

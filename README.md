@@ -161,15 +161,15 @@ npm run package
 
 ---
 
-## Pre-Built Downloads (Latest Release: v1.3.1)
+## Pre-Built Downloads (Latest Release: v1.3.2)
 
-Ready-to-use production binaries are published under [GitHub Releases v1.3.1](https://github.com/Sami12901/vaultkey/releases/tag/v1.3.1):
+Ready-to-use production binaries are published under [GitHub Releases v1.3.2](https://github.com/Sami12901/vaultkey/releases/tag/v1.3.2):
 
 | Platform | Binary Asset | Description | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- |
-| **Android** | [`VaultKey-v1.3.1.apk`](https://github.com/Sami12901/vaultkey/releases/download/v1.3.1/VaultKey-v1.3.1.apk) | Native Android Mobile App with Kotlin Autofill, Keystore biometrics, and offline TOTP Authenticator | `3302E20B86D3FD3524945E44DCF8C0DB19ED8CFA55DBF456CCDC053F38164055` |
-| **Windows Portable** | [`VaultKey-v1.3.1-Portable.exe`](https://github.com/Sami12901/vaultkey/releases/download/v1.3.1/VaultKey-v1.3.1-Portable.exe) | Standalone portable executable (zero installation) with local encrypted SQLCipher storage | `B5E05205F8A1C3590A739FFC52DF7E1E420B5BF28C2B5771AF8208BF86A89A86` |
-| **Windows Setup** | [`VaultKey-v1.3.1-Setup.exe`](https://github.com/Sami12901/vaultkey/releases/download/v1.3.1/VaultKey-v1.3.1-Setup.exe) | Standard Windows NSIS installer with desktop/start-menu shortcuts and auto-updates | `803D6F0DE3AAB0FC82648D7FBFFB8F219E33AA2DADACA79A26EEF6DD212AAC0F` |
+| **Android** | [`VaultKey-v1.3.2.apk`](https://github.com/Sami12901/vaultkey/releases/download/v1.3.2/VaultKey-v1.3.2.apk) | Native Android Mobile App with Kotlin Autofill, Keystore biometrics, and offline TOTP Authenticator | `CAD939CFEB93B879436E5082B598F582EB0AB3A3542DA195988574630E174CFA` |
+| **Windows Portable** | [`VaultKey-v1.3.2-Portable.exe`](https://github.com/Sami12901/vaultkey/releases/download/v1.3.2/VaultKey-v1.3.2-Portable.exe) | Standalone portable executable (zero installation) with local encrypted SQLCipher storage | `52D73A0B228580074196852FF47D935C081F6FF5858E3CEC4EB9C6A2578F019A` |
+| **Windows Setup** | [`VaultKey-v1.3.2-Setup.exe`](https://github.com/Sami12901/vaultkey/releases/download/v1.3.2/VaultKey-v1.3.2-Setup.exe) | Standard Windows NSIS installer with desktop/start-menu shortcuts and auto-updates | `4151F46F7410D6A64F596A4122B8A191BB0D75D4CC4D172E5950BEFCC3517577` |
 
 ---
 

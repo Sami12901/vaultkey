@@ -352,7 +352,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title={t('settingsTitle')} onBack={onBack} />
 
-      <ScrollView style={[styles.content, { backgroundColor: colors.background }]} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={[styles.content, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
 
         {/* Security Preferences */}
         <Card style={styles.card}>
@@ -681,7 +685,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             />
             <View style={styles.aboutTextWrap}>
               <Text style={styles.aboutTitle}>VaultKey</Text>
-              <Text style={styles.aboutVersion}>Version 1.3.1 (Production)</Text>
+              <Text style={styles.aboutVersion}>Version 1.3.2 (Production)</Text>
               <Text style={styles.aboutSubtitle}>Hardware-Backed Zero-Knowledge Security</Text>
             </View>
           </View>
@@ -923,7 +927,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.base,
-    paddingBottom: 48,
+    paddingBottom: 110,
   },
   card: {
     padding: spacing.base,

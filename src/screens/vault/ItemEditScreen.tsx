@@ -326,7 +326,11 @@ export const ItemEditScreen: React.FC<ItemEditScreenProps> = ({
         }
       />
 
-      <ScrollView style={[styles.content, { backgroundColor: colors.background }]} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={[styles.content, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
 
         {/* Type Selector Tabs */}
         <View style={styles.typeRow}>
@@ -836,7 +840,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.base,
-    paddingBottom: 48,
+    paddingBottom: 110,
   },
   typeRow: {
     flexDirection: 'row',

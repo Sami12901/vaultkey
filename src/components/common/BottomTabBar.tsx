@@ -108,6 +108,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             onPress={() => onSelectTab(tab.key)}
             accessibilityRole="button"
             accessibilityLabel={tab.label}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
             activeOpacity={0.7}
           >
             <View
@@ -127,6 +128,8 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
                 { color: isActive ? colors.primaryLight : colors.textMuted },
                 isActive && styles.tabLabelActive,
               ]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
             >
               {tab.label}
             </Text>

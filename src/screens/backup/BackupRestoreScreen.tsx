@@ -381,6 +381,7 @@ export const BackupRestoreScreen: React.FC<BackupRestoreScreenProps> = ({
       <ScrollView
         style={[styles.content, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
         {activeTab === 'BACKUP' ? (
           <>
@@ -741,7 +742,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.base,
-    paddingBottom: 48,
+    paddingBottom: 110,
   },
   card: {
     padding: spacing.base,

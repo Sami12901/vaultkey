@@ -1,6 +1,6 @@
 {
   "name": "vaultkey-windows",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "VaultKey Zero-Knowledge Password & Security Manager for Windows",
   "main": "dist-electron/main.js",
   "author": "VaultKey Team",
